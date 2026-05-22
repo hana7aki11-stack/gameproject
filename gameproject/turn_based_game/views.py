@@ -21,6 +21,7 @@ def home(request):
     # ボタン判定
     action = request.GET.get('action')
     event_message = ""
+    last_action = action
 
     # ゲーム終了判定
     game_end = False
@@ -110,7 +111,7 @@ def home(request):
         event_message += " 疲れているみたい…成長度ダウン"
 
     # 満足度が高い
-    if satisfaction >= 80:
+    if satisfaction >= 100:
         growth += 3
         event_message += " ごきげん！成長度アップ"
 
@@ -119,6 +120,28 @@ def home(request):
         satisfaction -= 5
         growth -= 2
         event_message += " お腹いっぱいで遊びたくない…"
+
+    # 満腹なのにごはん
+    if fullness >= 80 and action == 'food':
+        satisfaction -= 10
+        energy -= 5
+        event_message += " お腹いっぱいで食べられない…"
+
+    # 元気が低いのに遊ぶ
+    if energy <= 20 and action == 'play':
+        satisfaction -= 10
+        growth -= 3
+        event_message += " 疲れていて遊べないみたい…"
+
+    # 絶好調
+    if satisfaction >= 80 and energy >= 80:
+        growth += 5
+        event_message += " 絶好調！すごく元気！"
+
+    # 弱っている状態
+    if energy <= 20 and fullness <= 20:
+        growth -= 2
+        event_message += " 弱っているみたい…"
 
 
     # 成長度によって画像変更
