@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>タイミングゲーム</title>
+  <style>
+    #bar {
+      position: relative;
+      width: 300px;
+      height: 20px;
+      background: #ccc;
+      margin: 50px;
+    }
+    #zone {
+      position: absolute;
+      left: 130px;
+      width: 40px;
+      height: 100%;
+      background: green;
+    }
+    #marker {
+      position: absolute;
+      width: 10px;
+      height: 100%;
+      background: red;
+    }
+  </style>
+</head>
+<body onload="start()">
+
+<h1>タイミングゲーム</h1>
+
+<div id="bar">
+  <div id="zone"></div>
+  <div id="marker"></div>
+</div>
+
+<button onclick="stop()">止める</button>
+<p id="result"></p>
+
+<script>
+let position = 0;
+let direction = 1;
+let interval;
+
+function start() {
+  interval = setInterval(() => {
+    position += direction * 2;
+
+    if (position > 290 || position < 0) {
+      direction *= -1;
+    }
+
+    document.getElementById("marker").style.left = position + "px";
+  }, 10);
+}
+
+function stop() {
+  clearInterval(interval);
+
+  const center = 150;
+  const diff = Math.abs(position - center);
+
+  let score;
+  if (diff < 10) score = 100;
+  else if (diff < 30) score = 70;
+  else if (diff < 60) score = 40;
+  else score = 0;
+
+  document.getElementById("result").innerText = "スコア：" + score;
+
+  sendScore(score);
+}
+
+function sendScore(score) {
+  fetch("/save_score/", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-CSRFToken": getCSRFToken()
+    },
+    body: JSON.stringify({ score: score })
+  });
+}
+
+function getCSRFToken() {
+  return document.cookie.split('; ')
+    .find(row => row.startsWith('csrftoken'))
+    ?.split('=')[1];
+}
+</script>
+
+</body>
+</html>

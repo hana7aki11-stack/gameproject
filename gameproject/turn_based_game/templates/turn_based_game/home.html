@@ -1,0 +1,66 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <title>ターン制育成ゲーム</title>
+</head>
+
+<body>
+
+    <h1>ターン制育成ゲーム</h1>
+
+    <img src="/static/{{ character_image }}" width="300">
+
+    <h2>パラメータ</h2>
+
+    <p>満足度：{{ satisfaction }}</p>
+    <p>元気：{{ energy }}</p>
+    <p>成長度：{{ growth }}</p>
+    <p>ターン：{{ turn }}
+
+    <h2>イベント</h2>
+
+<p>{{ event_message }}</p>
+
+    <h2>ゲーム状態</h2>
+
+<p>{{ game_status }}</p>
+
+    <h2>行動</h2>
+
+<form method="GET">
+
+    <button type="submit"
+            name="action"
+            value="food"
+            {% if game_end %}disabled{% endif %}>
+        ごはん
+    </button>
+
+    <button type="submit"
+            name="action"
+            value="play"
+            {% if game_end %}disabled{% endif %}>
+        あそぶ
+    </button>
+
+    <button type="submit"
+            name="action"
+            value="rest"
+            {% if game_end %}disabled{% endif %}>
+        休む
+    </button>
+
+    <button type="submit"
+            name="action"
+            value="reset">
+        リセット
+    </button>
+
+</form>
+
+</body>
+</html>

@@ -1,0 +1,150 @@
+from django.shortcuts import render
+import random
+
+def home(request):
+
+    # 初回だけ初期値を作る
+    if 'satisfaction' not in request.session:
+        request.session['satisfaction'] = 50
+        request.session['energy'] = 50
+        request.session['growth'] = 0
+        request.session['turn'] = 1
+
+    # セッションから現在値を取得
+    satisfaction = request.session['satisfaction']
+    energy = request.session['energy']
+    growth = request.session['growth']
+    turn = request.session['turn']
+
+    # ボタン判定
+    action = request.GET.get('action')
+
+    # ゲーム終了判定
+    game_end = False
+
+    if energy <= 0 or growth >= 50:
+        game_end = True
+
+    # ごはん
+    if action == 'food' and not game_end:
+        satisfaction += 10
+        energy += 5
+        growth += 2
+        turn += 1
+
+    # あそぶ
+    elif action == 'play' and not game_end:
+        satisfaction += 15
+        energy -= 10
+        growth += 3
+        turn += 1
+
+    # 休む
+    elif action == 'rest' and not game_end:
+        satisfaction -= 5
+        energy += 20
+        growth += 1
+        turn += 1
+
+    # リセット
+    elif action == 'reset':
+        satisfaction = 50
+        energy = 50
+        growth = 0
+        turn = 1
+
+    # イベントメッセージ
+    event_message = ""
+
+    # 3ターンごとのランダムイベント
+    if turn % 3 == 0:
+
+        event = random.randint(1, 4)
+
+        # 楽しいことがあった
+        if event == 1:
+            satisfaction += 20
+            event_message = "楽しいことがあった！満足度アップ！"
+
+        # 疲れた
+        elif event == 2:
+            energy -= 15
+            event_message = "疲れてしまった…元気ダウン"
+
+        # 成長
+        elif event == 3:
+            growth += 5
+            event_message = "大きく成長した！"
+
+        # 何もない
+        else:
+            event_message = "特になにもなかった"
+
+    # パラメータ上限・下限
+
+    satisfaction = max(0, min(100, satisfaction))
+    energy = max(0, min(100, energy))
+    growth = max(0, min(50, growth))
+
+    # 更新後の値を保存
+    request.session['satisfaction'] = satisfaction
+    request.session['energy'] = energy
+    request.session['growth'] = growth
+    request.session['turn'] = turn
+
+
+    # パラメータ依存イベント
+
+    # 元気が低い
+    if energy <= 20:
+        growth -= 2
+        event_message += " 疲れているみたい…成長度ダウン"
+
+    # 満足度が高い
+    if satisfaction >= 80:
+        growth += 3
+        event_message += " ごきげん！成長度アップ"
+
+
+    # 成長度によって画像変更
+    if growth < 20:
+        character_image = 'images/character1.png'
+
+    elif growth < 50:
+        character_image = 'images/character2.png'
+
+    else:
+        character_image = 'images/character3.png'
+
+    # 更新後のゲーム終了判定
+    if energy <= 0 or growth >= 50:
+        game_end = True
+
+    # ゲーム状態
+    game_status = ""
+
+    # ゲームオーバー
+    if energy <= 0:
+        game_status = "つかれて眠ってしまった…ゲームオーバー"
+
+    # エンディング
+    elif growth >= 50:
+        game_status = "大きく成長した！ゲームクリア！"
+
+
+    status = {
+        'satisfaction': satisfaction,
+        'energy': energy,
+        'growth': growth,
+        'turn': turn,
+        'event_message': event_message,
+        'character_image': character_image,
+        'game_status': game_status,
+        'game_end': game_end,
+    }
+
+    return render(
+        request,
+        'turn_based_game/home.html',
+        status
+    )
