@@ -8,12 +8,14 @@ def home(request):
         request.session['satisfaction'] = 50
         request.session['energy'] = 50
         request.session['growth'] = 0
+        request.session['fullness'] = 50
         request.session['turn'] = 1
 
     # セッションから現在値を取得
     satisfaction = request.session['satisfaction']
     energy = request.session['energy']
     growth = request.session['growth']
+    fullness = request.session['fullness']
     turn = request.session['turn']
 
     # ボタン判定
@@ -29,20 +31,33 @@ def home(request):
     if action == 'food' and not game_end:
         satisfaction += 10
         energy += 5
+        fullness += 30
         growth += 2
         turn += 1
 
     # あそぶ
     elif action == 'play' and not game_end:
-        satisfaction += 15
-        energy -= 10
-        growth += 3
+
+        # 満腹すぎる時
+        if fullness >= 80:
+            satisfaction -= 5
+            energy -= 5
+            growth += 1
+            event_message = "お腹いっぱいで遊びたくない…"
+
+        else:
+            satisfaction += 15
+            energy -= 10
+            growth += 3
+
+        fullness -= 15
         turn += 1
 
     # 休む
     elif action == 'rest' and not game_end:
         satisfaction -= 5
         energy += 20
+        fullness -= 5
         growth += 1
         turn += 1
 
@@ -51,6 +66,7 @@ def home(request):
         satisfaction = 50
         energy = 50
         growth = 0
+        fullness = 50
         turn = 1
 
     # イベントメッセージ
@@ -85,11 +101,13 @@ def home(request):
     satisfaction = max(0, min(100, satisfaction))
     energy = max(0, min(100, energy))
     growth = max(0, min(50, growth))
+    fullness = max(0, min(100, fullness))
 
     # 更新後の値を保存
     request.session['satisfaction'] = satisfaction
     request.session['energy'] = energy
     request.session['growth'] = growth
+    request.session['fullness'] = fullness
     request.session['turn'] = turn
 
 
@@ -136,6 +154,7 @@ def home(request):
         'satisfaction': satisfaction,
         'energy': energy,
         'growth': growth,
+        'fullness': fullness,
         'turn': turn,
         'event_message': event_message,
         'character_image': character_image,
