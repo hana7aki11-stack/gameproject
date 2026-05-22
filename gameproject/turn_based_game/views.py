@@ -5,7 +5,10 @@ from datetime import datetime
 def home(request):
 
     # 初回だけ初期値を作る
-    if 'satisfaction' not in request.session:
+    if (
+            'satisfaction' not in request.session
+            or 'fullness' not in request.session
+    ):
         request.session['satisfaction'] = 50
         request.session['energy'] = 50
         request.session['growth'] = 0

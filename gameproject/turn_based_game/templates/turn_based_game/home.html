@@ -13,24 +13,24 @@
     <h1>ターン制育成ゲーム</h1>
 
     <div style="
-        width: 600px;
-        height: 400px;
-        background-image: url('{% static background_image %}');
-        background-size: cover;
-        background-position: center;
-        position: relative;
-    ">
+    width: 600px;
+    height: 400px;
+    background-image: url('/static/{{ background_image }}');
+    background-size: cover;
+    background-position: center;
+    position: relative;
+">
 
-        <img src="{% static character_image %}"
-             width="250"
-             style="
-                position: absolute;
-                bottom: 20px;
-                left: 50%;
-                transform: translateX(-50%);
-             ">
+    <img src="/static/{{ character_image }}"
+         width="250"
+         style="
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+         ">
 
-    </div>
+</div>
 
     <h2>パラメータ</h2>
 
