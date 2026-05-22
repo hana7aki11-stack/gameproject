@@ -38,19 +38,9 @@ def home(request):
 
     # あそぶ
     elif action == 'play' and not game_end:
-
-        # 満腹すぎる時
-        if fullness >= 80:
-            satisfaction -= 5
-            energy -= 5
-            growth += 1
-            event_message += " お腹いっぱいで遊びたくない…"
-
-        else:
-            satisfaction += 15
-            energy -= 10
-            growth += 3
-
+        satisfaction += 15
+        energy -= 10
+        growth += 3
         fullness -= 15
         turn += 1
 
@@ -123,6 +113,12 @@ def home(request):
     if satisfaction >= 80:
         growth += 3
         event_message += " ごきげん！成長度アップ"
+
+    # 満腹すぎる
+    if fullness >= 80:
+        satisfaction -= 5
+        growth -= 2
+        event_message += " お腹いっぱいで遊びたくない…"
 
 
     # 成長度によって画像変更
