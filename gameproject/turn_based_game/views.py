@@ -20,6 +20,7 @@ def home(request):
 
     # ボタン判定
     action = request.GET.get('action')
+    event_message = ""
 
     # ゲーム終了判定
     game_end = False
@@ -43,7 +44,7 @@ def home(request):
             satisfaction -= 5
             energy -= 5
             growth += 1
-            event_message = "お腹いっぱいで遊びたくない…"
+            event_message += " お腹いっぱいで遊びたくない…"
 
         else:
             satisfaction += 15
