@@ -19,6 +19,51 @@
     }
 }
 
+@keyframes eatCharacter {
+
+    0% {
+        transform: translateX(-50%) scaleY(1);
+    }
+
+    25% {
+        transform: translateX(-50%) scaleY(0.9);
+    }
+
+    50% {
+        transform: translateX(-50%) scaleY(1);
+    }
+
+    75% {
+        transform: translateX(-50%) scaleY(0.9);
+    }
+
+    100% {
+        transform: translateX(-50%) scaleY(1);
+    }
+}
+
+@keyframes foodAppear {
+
+    0% {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+
+    20% {
+        opacity: 1;
+        transform: translateY(0px);
+    }
+
+    80% {
+        opacity: 1;
+    }
+
+    100% {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+}
+
 </style>
 
 <head>
@@ -46,8 +91,74 @@
         bottom: 20px;
         left: 50%;
         transform: translateX(-50%);
+
+        {% if show_food %}
+        animation: eatCharacter 0.5s ease-in-out 2;
+        {% else %}
         animation: floatCharacter 2s ease-in-out infinite;
+        {% endif %}
      ">
+     {% if show_ball %}
+
+<img id="ball-image"
+     src="/static/images/ball.png"
+     width="90"
+     style="
+        position: absolute;
+        bottom: 170px;
+        left: 58%;
+        transform: translateX(-50%);
+        animation: foodAppear 1.5s ease-out;
+     ">
+
+<script>
+setTimeout(function() {
+    const ball = document.getElementById('ball-image');
+    if (ball) {
+        ball.style.display = 'none';
+    }
+}, 1500);
+</script>
+
+{% endif %}
+
+  {% if show_sleep %}
+
+<img id="zzz-image"
+     src="/static/images/zzz.png"
+     width="80"
+     style="
+        position: absolute;
+        bottom: 250px;
+        left: 58%;
+        transform: translateX(-50%);
+        animation: foodAppear 2s ease-out;
+     ">
+
+<script>
+setTimeout(function() {
+    const zzz = document.getElementById('zzz-image');
+    if (zzz) {
+        zzz.style.display = 'none';
+    }
+}, 2000);
+</script>
+
+{% endif %}
+
+      {% if show_food %}
+
+<img src="/static/images/food.png"
+     width="100"
+     style="
+        position: absolute;
+        bottom: 180px;
+        left: 55%;
+        transform: translateX(-50%);
+        animation: foodAppear 1.5s ease-out forwards;
+     ">
+
+{% endif %}
 
 </div>
 
