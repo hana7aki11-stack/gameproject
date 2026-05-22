@@ -3,6 +3,24 @@
 <!DOCTYPE html>
 <html lang="ja">
 
+<style>
+
+@keyframes floatCharacter {
+    0% {
+        transform: translateX(-50%) translateY(0px);
+    }
+
+    50% {
+        transform: translateX(-50%) translateY(-10px);
+    }
+
+    100% {
+        transform: translateX(-50%) translateY(0px);
+    }
+}
+
+</style>
+
 <head>
     <meta charset="UTF-8">
     <title>ターン制育成ゲーム</title>
@@ -22,13 +40,14 @@
 ">
 
     <img src="/static/{{ character_image }}"
-         width="250"
-         style="
-            position: absolute;
-            bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-         ">
+     width="250"
+     style="
+        position: absolute;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        animation: floatCharacter 2s ease-in-out infinite;
+     ">
 
 </div>
 

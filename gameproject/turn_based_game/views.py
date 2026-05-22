@@ -1,6 +1,7 @@
 from django.shortcuts import render
 import random
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
 def home(request):
 
@@ -173,8 +174,9 @@ def home(request):
     elif growth >= 50:
         game_status = "大きく成長した！ゲームクリア！"
 
-    # 現在時間
-    hour = datetime.now().hour
+    # 日本時間を取得
+    japan_time = datetime.now(ZoneInfo("Asia/Tokyo"))
+    hour = japan_time.hour
 
     # 背景画像
     if 6 <= hour < 12:
