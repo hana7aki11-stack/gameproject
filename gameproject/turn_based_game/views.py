@@ -1,5 +1,6 @@
 from django.shortcuts import render
 import random
+from datetime import datetime
 
 def home(request):
 
@@ -169,6 +170,19 @@ def home(request):
     elif growth >= 50:
         game_status = "大きく成長した！ゲームクリア！"
 
+    # 現在時間
+    hour = datetime.now().hour
+
+    # 背景画像
+    if 6 <= hour < 12:
+        background_image = 'images/morning.png'
+
+    elif 12 <= hour < 18:
+        background_image = 'images/noon.png'
+
+    else:
+        background_image = 'images/night.png'
+
 
     status = {
         'satisfaction': satisfaction,
@@ -178,8 +192,10 @@ def home(request):
         'turn': turn,
         'event_message': event_message,
         'character_image': character_image,
+        'background_image': background_image,
         'game_status': game_status,
         'game_end': game_end,
+
     }
 
     return render(

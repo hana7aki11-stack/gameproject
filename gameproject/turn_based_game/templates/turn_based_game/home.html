@@ -12,7 +12,25 @@
 
     <h1>ターン制育成ゲーム</h1>
 
-    <img src="{% static character_image %}" width="300">
+    <div style="
+        width: 600px;
+        height: 400px;
+        background-image: url('{% static background_image %}');
+        background-size: cover;
+        background-position: center;
+        position: relative;
+    ">
+
+        <img src="{% static character_image %}"
+             width="250"
+             style="
+                position: absolute;
+                bottom: 20px;
+                left: 50%;
+                transform: translateX(-50%);
+             ">
+
+    </div>
 
     <h2>パラメータ</h2>
 
@@ -22,47 +40,46 @@
     <p>満腹度：{{ fullness }}</p>
     <p>ターン：{{ turn }}</p>
 
-
     <h2>イベント</h2>
 
-<p>{{ event_message }}</p>
+    <p>{{ event_message }}</p>
 
     <h2>ゲーム状態</h2>
 
-<p>{{ game_status }}</p>
+    <p>{{ game_status }}</p>
 
     <h2>行動</h2>
 
-<form method="GET">
+    <form method="GET">
 
-    <button type="submit"
-            name="action"
-            value="food"
-            {% if game_end %}disabled{% endif %}>
-        ごはん
-    </button>
+        <button type="submit"
+                name="action"
+                value="food"
+                {% if game_end %}disabled{% endif %}>
+            ごはん
+        </button>
 
-    <button type="submit"
-            name="action"
-            value="play"
-            {% if game_end %}disabled{% endif %}>
-        あそぶ
-    </button>
+        <button type="submit"
+                name="action"
+                value="play"
+                {% if game_end %}disabled{% endif %}>
+            あそぶ
+        </button>
 
-    <button type="submit"
-            name="action"
-            value="rest"
-            {% if game_end %}disabled{% endif %}>
-        休む
-    </button>
+        <button type="submit"
+                name="action"
+                value="rest"
+                {% if game_end %}disabled{% endif %}>
+            休む
+        </button>
 
-    <button type="submit"
-            name="action"
-            value="reset">
-        リセット
-    </button>
+        <button type="submit"
+                name="action"
+                value="reset">
+            リセット
+        </button>
 
-</form>
+    </form>
 
 </body>
 </html>
