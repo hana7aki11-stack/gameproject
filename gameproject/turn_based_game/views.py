@@ -27,11 +27,8 @@ def home(request):
     action = request.GET.get('action')
     event_message = ""
 
-    # 毎回初期化
-    show_food = False
-    show_ball = False
-    show_sleep = False
-    last_action = None
+    # 最後の行動
+    last_action = action
 
     # ゲーム終了判定
     game_end = False
@@ -47,8 +44,7 @@ def home(request):
         growth += 2
         turn += 1
 
-        # 一瞬だけ表示
-        show_food = True
+
 
     elif action == 'play' and not game_end:
         satisfaction += 15
@@ -57,8 +53,7 @@ def home(request):
         fullness -= 15
         turn += 1
 
-        # ボール表示
-        show_ball = True
+
 
     elif action == 'rest' and not game_end:
         satisfaction -= 5
@@ -67,8 +62,7 @@ def home(request):
         growth += 1
         turn += 1
 
-        # Zzz表示
-        show_sleep = True
+
 
     # リセット
     elif action == 'reset':
@@ -213,9 +207,6 @@ def home(request):
         'game_status': game_status,
         'game_end': game_end,
         'last_action': last_action,
-        'show_food': show_food,
-        'show_ball': show_ball,
-        'show_sleep': show_sleep,
 
     }
 
