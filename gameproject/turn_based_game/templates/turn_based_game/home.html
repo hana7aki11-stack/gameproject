@@ -76,108 +76,97 @@
     <h1>ターン制育成ゲーム</h1>
 
     <div style="
-    width: 600px;
-    height: 400px;
-    background-image: url('/static/{{ background_image }}');
-    background-size: cover;
-    background-position: center;
-    position: relative;
-">
+        display: flex;
+        align-items: flex-start;
+        gap: 30px;
+    ">
 
-    <img src="/static/{{ character_image }}"
-     width="250"
-     style="
-        position: absolute;
-        bottom: 20px;
-        left: 50%;
-        transform: translateX(-50%);
+        <!-- 背景＋キャラクター -->
+        <div style="
+            width: 600px;
+            height: 400px;
+            background-image: url('/static/{{ background_image }}');
+            background-size: cover;
+            background-position: center;
+            position: relative;
+            border: 2px solid #ccc;
+            border-radius: 10px;
+        ">
 
-        {% if show_food %}
-        animation: eatCharacter 0.5s ease-in-out 2;
-        {% else %}
-        animation: floatCharacter 2s ease-in-out infinite;
-        {% endif %}
-     ">
-     {% if show_ball %}
+            <!-- キャラクター -->
+            <img src="/static/{{ character_image }}"
+                 width="250"
+                 style="
+                    position: absolute;
+                    bottom: 20px;
+                    left: 50%;
+                    transform: translateX(-50%);
+                    animation: floatCharacter 2s ease-in-out infinite;
+                 ">
 
-<img id="ball-image"
-     src="/static/images/ball.png"
-     width="90"
-     style="
-        position: absolute;
-        bottom: 170px;
-        left: 58%;
-        transform: translateX(-50%);
-        animation: foodAppear 1.5s ease-out;
-     ">
+            <!-- ごはん -->
+            {% if show_food %}
+            <img src="/static/images/food.png"
+                 width="100"
+                 style="
+                    position: absolute;
+                    bottom: 180px;
+                    left: 55%;
+                    transform: translateX(-50%);
+                    animation: foodAppear 1.5s ease-out;
+                 ">
+            {% endif %}
 
-<script>
-setTimeout(function() {
-    const ball = document.getElementById('ball-image');
-    if (ball) {
-        ball.style.display = 'none';
-    }
-}, 1500);
-</script>
+            <!-- ボール -->
+            {% if show_ball %}
+            <img src="/static/images/ball.png"
+                 width="90"
+                 style="
+                    position: absolute;
+                    bottom: 170px;
+                    left: 58%;
+                    transform: translateX(-50%);
+                    animation: foodAppear 1.5s ease-out;
+                 ">
+            {% endif %}
 
-{% endif %}
+            <!-- Zzz -->
+            {% if show_sleep %}
+            <img src="/static/images/zzz.png"
+                 width="80"
+                 style="
+                    position: absolute;
+                    bottom: 250px;
+                    left: 58%;
+                    transform: translateX(-50%);
+                    animation: foodAppear 2s ease-out;
+                 ">
+            {% endif %}
 
-  {% if show_sleep %}
+        </div>
 
-<img id="zzz-image"
-     src="/static/images/zzz.png"
-     width="80"
-     style="
-        position: absolute;
-        bottom: 250px;
-        left: 58%;
-        transform: translateX(-50%);
-        animation: foodAppear 2s ease-out;
-     ">
+        <!-- パラメータ -->
+        <div style="
+            min-width: 200px;
+            border: 2px solid #ccc;
+            border-radius: 10px;
+            padding: 15px;
+            background-color: #f8f8f8;
+        ">
 
-<script>
-setTimeout(function() {
-    const zzz = document.getElementById('zzz-image');
-    if (zzz) {
-        zzz.style.display = 'none';
-    }
-}, 2000);
-</script>
+            <h2>パラメータ</h2>
 
-{% endif %}
+            <p>満足度：{{ satisfaction }}</p>
+            <p>元気：{{ energy }}</p>
+            <p>成長度：{{ growth }}</p>
+            <p>満腹度：{{ fullness }}</p>
+            <p>ターン：{{ turn }}</p>
 
-      {% if show_food %}
+        </div>
 
-<img src="/static/images/food.png"
-     width="100"
-     style="
-        position: absolute;
-        bottom: 180px;
-        left: 55%;
-        transform: translateX(-50%);
-        animation: foodAppear 1.5s ease-out forwards;
-     ">
+    </div>
 
-{% endif %}
-
-</div>
-
-    <h2>パラメータ</h2>
-
-    <p>満足度：{{ satisfaction }}</p>
-    <p>元気：{{ energy }}</p>
-    <p>成長度：{{ growth }}</p>
-    <p>満腹度：{{ fullness }}</p>
-    <p>ターン：{{ turn }}</p>
-
-    <h2>イベント</h2>
-
-    <p>{{ event_message }}</p>
-
-    <h2>ゲーム状態</h2>
-
-    <p>{{ game_status }}</p>
-
+    <!-- 行動 -->
     <h2>行動</h2>
 
     <form method="GET">
@@ -203,12 +192,25 @@ setTimeout(function() {
             休む
         </button>
 
+    </form>
+
+    <!-- イベント -->
+    <h2>イベント</h2>
+    <p>{{ event_message }}</p>
+
+    <!-- ゲーム状態 -->
+    <h2>ゲーム状態</h2>
+    <p>{{ game_status }}</p>
+
+    <!-- リセット -->
+    <h2>リセット</h2>
+
+    <form method="GET">
         <button type="submit"
                 name="action"
                 value="reset">
             リセット
         </button>
-
     </form>
 
 </body>
