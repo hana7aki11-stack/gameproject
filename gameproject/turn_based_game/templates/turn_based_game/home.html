@@ -64,6 +64,13 @@
     }
 }
 
+.parameter-box {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
 </style>
 
 <head>
@@ -203,8 +210,6 @@
     <p>{{ game_status }}</p>
 
     <!-- リセット -->
-    <h2>リセット</h2>
-
     <form method="GET">
         <button type="submit"
                 name="action"
