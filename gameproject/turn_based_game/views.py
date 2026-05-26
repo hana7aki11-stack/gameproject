@@ -26,6 +26,7 @@ def home(request):
     # ボタン判定
     action = request.GET.get('action')
     event_message = ""
+    reaction_state = "normal"
 
     # 最後の行動
     last_action = action
@@ -38,28 +39,109 @@ def home(request):
 
     # ごはん
     if action == 'food' and not game_end:
-        satisfaction += 10
-        energy += 5
-        fullness += 30
-        growth += 2
+
+        # 空腹 → 大喜び
+        if fullness <= 20:
+            satisfaction += 20
+            energy += 10
+            fullness += 30
+            growth += 4
+
+            reaction_state = "happy_food"
+
+        # 満腹 → 嫌がる
+        elif fullness >= 80:
+            satisfaction -= 10
+            energy -= 5
+
+            reaction_state = "reject_food"
+
+        # 普通
+        else:
+            satisfaction += 10
+            energy += 5
+            fullness += 30
+            growth += 2
+
+            reaction_state = "normal_food"
+
         turn += 1
+
 
 
 
     elif action == 'play' and not game_end:
-        satisfaction += 15
-        energy -= 10
-        growth += 3
-        fullness -= 15
+
+        # 元気 → 大喜び
+
+        if energy >= 70:
+
+            satisfaction += 20
+
+            energy -= 10
+
+            growth += 5
+
+            fullness -= 15
+
+            reaction_state = "happy_play"
+
+
+        # 疲れ → 嫌がる
+
+        elif energy <= 20:
+
+            satisfaction -= 10
+
+            growth -= 2
+
+            reaction_state = "tired_play"
+
+
+        # 普通
+
+        else:
+
+            satisfaction += 15
+
+            energy -= 10
+
+            growth += 3
+
+            fullness -= 15
+
+            reaction_state = "normal_play"
+
         turn += 1
 
 
 
+
     elif action == 'rest' and not game_end:
-        satisfaction -= 5
-        energy += 20
-        fullness -= 5
-        growth += 1
+
+        # 疲れている → 気持ちいい
+
+        if energy <= 20:
+
+            energy += 30
+
+            satisfaction += 10
+
+            reaction_state = "good_rest"
+
+
+        else:
+
+            satisfaction -= 5
+
+            energy += 20
+
+            fullness -= 5
+
+            growth += 1
+
+            reaction_state = "normal_rest"
+
         turn += 1
 
 
@@ -312,7 +394,7 @@ def home(request):
         'show_good': show_good,
         'show_food_icon': show_food_icon,
         'character_animation': character_animation,
-
+        'reaction_state': reaction_state,
     }
 
     return render(

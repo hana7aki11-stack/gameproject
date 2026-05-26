@@ -206,6 +206,30 @@
         {% endif %}
      ">
 
+            <!-- 喜び -->
+{% if reaction_state == 'happy_food' %}
+<img src="{% static 'images/heart.png' %}"
+     width="90"
+     style="
+        position:absolute;
+        left:45%;
+        bottom:250px;
+        animation: happyBounce 0.6s infinite;
+">
+{% endif %}
+
+<!-- ごはん拒否 -->
+{% if reaction_state == 'reject_food' %}
+<img src="{% static 'images/sweat.png' %}"
+     width="70"
+     style="
+        position:absolute;
+        left:45%;
+        bottom:250px;
+">
+{% endif %}
+
+
             <!-- ごはん -->
             {% if last_action == 'food' %}
             <img class="effect-icon"
