@@ -217,6 +217,10 @@ def home(request):
             character_image = 'images/character2.png'
 
 
+     else:
+            character_image = 'images/character3.png'
+
+
     # 更新後のゲーム終了判定
     if energy <= 0 or growth >= 50:
         game_end = True
