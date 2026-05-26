@@ -42,6 +42,75 @@
                 transform: translateX(-50%) translateY(0px);
             }
         }
+
+        @keyframes happyBounce {
+
+    0% {
+        transform: translateX(-50%) translateY(0px);
+    }
+
+    50% {
+        transform: translateX(-50%) translateY(-20px);
+    }
+
+    100% {
+        transform: translateX(-50%) translateY(0px);
+    }
+}
+
+@keyframes tiredMove {
+
+    0% {
+        transform: translateX(-50%) translateY(0px);
+    }
+
+    50% {
+        transform: translateX(-50%) translateY(-2px);
+    }
+
+    100% {
+        transform: translateX(-50%) translateY(0px);
+    }
+}
+
+@keyframes hungryShake {
+
+    0% {
+        transform: translateX(-50%) translateX(-2px);
+    }
+
+    25% {
+        transform: translateX(-50%) translateX(2px);
+    }
+
+    50% {
+        transform: translateX(-50%) translateX(-2px);
+    }
+
+    75% {
+        transform: translateX(-50%) translateX(2px);
+    }
+
+    100% {
+        transform: translateX(-50%) translateX(-2px);
+    }
+}
+
+@keyframes fullMove {
+
+    0% {
+        transform: translateX(-50%) translateY(0px);
+    }
+
+    50% {
+        transform: translateX(-50%) translateY(-4px);
+    }
+
+    100% {
+        transform: translateX(-50%) translateY(0px);
+    }
+}
+
 @keyframes eatCharacter {
 
     0% {
@@ -127,13 +196,13 @@
         {% if last_action == 'food' %}
         animation:
             eatCharacter 0.5s ease-in-out 3,
-            floatCharacter 2s ease-in-out infinite;
+            {{ character_animation }};
         animation-delay:
             0s,
             1.5s;
         {% else %}
         animation:
-            floatCharacter 2s ease-in-out infinite;
+            {{ character_animation }};
         {% endif %}
      ">
 

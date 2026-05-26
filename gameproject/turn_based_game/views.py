@@ -221,6 +221,25 @@ def home(request):
 
         character_image = 'images/character3.png'
 
+    # -------------------------
+    # 状態ごとの動き
+    # -------------------------
+
+    if character_state == "happy":
+        character_animation = "happyBounce 0.8s ease-in-out infinite"
+
+    elif character_state == "tired":
+        character_animation = "tiredMove 3s ease-in-out infinite"
+
+    elif character_state == "hungry":
+        character_animation = "hungryShake 0.3s linear infinite"
+
+    elif character_state == "full":
+        character_animation = "fullMove 4s ease-in-out infinite"
+
+    else:
+        character_animation = "floatCharacter 2s ease-in-out infinite"
+
 
     # 更新後のゲーム終了判定
     if energy <= 0 or growth >= 50:
@@ -292,6 +311,7 @@ def home(request):
         'show_sweat': show_sweat,
         'show_good': show_good,
         'show_food_icon': show_food_icon,
+        'character_animation': character_animation,
 
     }
 
