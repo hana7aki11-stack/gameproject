@@ -254,15 +254,10 @@ def home(request):
     # -------------------------
     # 感情アイコン
     # -------------------------
-
-    # -------------------------
-    # 感情アイコン
-    # -------------------------
-
     show_heart = False
     show_sweat = False
     show_good = False
-    show_food = False
+    show_food_icon = False
 
     # 満足高
     if satisfaction >= 80:
@@ -274,7 +269,7 @@ def home(request):
 
     # 空腹
     if fullness <= 20:
-        show_food = True
+        show_food_icon = True
 
     # 絶好調
     if satisfaction >= 80 and energy >= 80:
@@ -296,7 +291,7 @@ def home(request):
         'show_heart': show_heart,
         'show_sweat': show_sweat,
         'show_good': show_good,
-        'show_food_icon': show_food,
+        'show_food_icon': show_food_icon,
 
     }
 
