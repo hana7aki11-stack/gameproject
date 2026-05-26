@@ -182,6 +182,50 @@ pointer-events: none;
                  ">
             {% endif %}
 
+            <!-- ハート -->
+{% if show_heart %}
+<img src="{% static 'images/heart.png' %}"
+     width="60"
+     style="
+        position: absolute;
+        top: 40px;
+        right: 40px;
+     ">
+{% endif %}
+
+<!-- 汗 -->
+{% if show_sweat %}
+<img src="{% static 'images/sweat.png' %}"
+     width="60"
+     style="
+        position: absolute;
+        top: 120px;
+        right: 40px;
+     ">
+{% endif %}
+
+<!-- 絶好調 -->
+{% if show_good %}
+<img src="{% static 'images/good.png' %}"
+     width="80"
+     style="
+        position: absolute;
+        top: 200px;
+        right: 30px;
+     ">
+{% endif %}
+
+<!-- 空腹 -->
+{% if show_food %}
+<img src="{% static 'images/food.png' %}"
+     width="60"
+     style="
+        position: absolute;
+        top: 280px;
+        right: 40px;
+     ">
+{% endif %}
+
         </div>
 
 

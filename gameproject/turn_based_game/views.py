@@ -154,16 +154,68 @@ def home(request):
         growth -= 2
         event_message += " 弱っているみたい…"
 
+    # -------------------------
+    # キャラクター状態判定
+    # -------------------------
 
-    # 成長度によって画像変更
+    # 初期値
+    character_state = "normal"
+
+    # 疲れ優先
+    if energy <= 20:
+        character_state = "tired"
+
+    # 空腹
+    elif fullness <= 20:
+        character_state = "hungry"
+
+    # 満腹
+    elif fullness >= 80:
+        character_state = "full"
+
+    # ごきげん
+    elif satisfaction >= 80 or energy >= 80:
+        character_state = "happy"
+
+    # -------------------------
+    # 成長段階 × 状態画像
+    # -------------------------
+
     if growth < 20:
-        character_image = 'images/character1.png'
+
+        if character_state == "happy":
+            character_image = 'images/character1-happy.png'
+
+        elif character_state == "tired":
+            character_image = 'images/character1-tired.png'
+
+        elif character_state == "hungry":
+            character_image = 'images/character1-hungry.png'
+
+        elif character_state == "full":
+            character_image = 'images/character1-full.png'
+
+        else:
+            character_image = 'images/character1.png'
+
 
     elif growth < 50:
-        character_image = 'images/character2.png'
 
-    else:
-        character_image = 'images/character3.png'
+        if character_state == "happy":
+            character_image = 'images/character2-happy.png'
+
+        elif character_state == "tired":
+            character_image = 'images/character2-tired.png'
+
+        elif character_state == "hungry":
+            character_image = 'images/character2-hungry.png'
+
+        elif character_state == "full":
+            character_image = 'images/character2-full.png'
+
+        else:
+            character_image = 'images/character2.png'
+
 
     # 更新後のゲーム終了判定
     if energy <= 0 or growth >= 50:
@@ -194,6 +246,34 @@ def home(request):
     else:
         background_image = 'images/night.png'
 
+    # -------------------------
+    # 感情アイコン
+    # -------------------------
+
+    # -------------------------
+    # 感情アイコン
+    # -------------------------
+
+    show_heart = False
+    show_sweat = False
+    show_good = False
+    show_food = False
+
+    # 満足高
+    if satisfaction >= 80:
+        show_heart = True
+
+    # 疲れ
+    if energy <= 20:
+        show_sweat = True
+
+    # 空腹
+    if fullness <= 20:
+        show_food = True
+
+    # 絶好調
+    if satisfaction >= 80 and energy >= 80:
+        show_good = True
 
     status = {
         'satisfaction': satisfaction,
@@ -207,6 +287,11 @@ def home(request):
         'game_status': game_status,
         'game_end': game_end,
         'last_action': last_action,
+        # 感情アイコン
+        'show_heart': show_heart,
+        'show_sweat': show_sweat,
+        'show_good': show_good,
+        'show_food_icon': show_food,
 
     }
 
