@@ -96,13 +96,11 @@
     <h1>ターン制育成ゲーム</h1>
 
     <!-- 背景＋パラメータ -->
-    <div style="
-        display: flex;
-        justify-content: center;
-        align-items: flex-start;
-        gap: 30px;
-        margin-bottom: 30px;
-    ">
+   <div style="
+    display: flex;
+    justify-content: center;
+    margin-bottom: 30px;
+">
 
         <!-- 背景＋キャラクター -->
         <div style="
@@ -186,26 +184,7 @@ pointer-events: none;
 
         </div>
 
-        <!-- パラメータ -->
-        <div style="
-            min-width: 220px;
-            border: 2px solid #ccc;
-            border-radius: 10px;
-            padding: 20px;
-            background-color: #f8f8f8;
-        ">
 
-            <h2>パラメータ</h2>
-
-            <div class="parameter-box">
-                <p>満足度：{{ satisfaction }}</p>
-                <p>元気：{{ energy }}</p>
-                <p>成長度：{{ growth }}</p>
-                <p>満腹度：{{ fullness }}</p>
-                <p>ターン：{{ turn }}</p>
-            </div>
-
-        </div>
 
     </div>
 
@@ -240,13 +219,6 @@ pointer-events: none;
 
     </form>
 
-    <!-- イベント -->
-    <h2>イベント</h2>
-    <p>{{ event_message }}</p>
-
-    <!-- ゲーム状態 -->
-    <h2>ゲーム状態</h2>
-    <p>{{ game_status }}</p>
 
     <!-- リセット -->
     <form method="GET">
