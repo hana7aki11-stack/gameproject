@@ -157,6 +157,21 @@
     }
 }
 
+        @keyframes bounceBall {
+
+    0% {
+        transform: translateY(0px);
+    }
+
+    50% {
+        transform: translateY(-20px);
+    }
+
+    100% {
+        transform: translateY(0px);
+    }
+}
+
     </style>
 </head>
 
@@ -183,82 +198,52 @@
             border-radius: 10px;
         ">
 
-           <!-- キャラクター -->
-<img id="character"
-     src="{% static character_image %}"
-     width="250"
-     style="
-        position: absolute;
-        bottom: 20px;
-        left: 50%;
-        transform: translateX(-50%);
+         <!-- キャラクター -->
 
-        {% if last_action == 'food' %}
-        animation:
-            eatCharacter 0.5s ease-in-out 3,
-            {{ character_animation }};
-        animation-delay:
-            0s,
-            1.5s;
-        {% else %}
-        animation:
-            {{ character_animation }};
-        {% endif %}
-     ">
-
-            <!-- 喜び -->
-{% if reaction_state == 'happy_food' %}
-<img src="{% static 'images/heart.png' %}"
+<!-- 食べ物エフェクト -->
+{% if last_action == 'salad' or last_action == 'snack' or last_action == 'meal' %}
+<img class="effect-icon"
+     src="{% static 'images/'|add:last_action|add:'.png' %}"
      width="90"
      style="
         position:absolute;
-        left:45%;
-        bottom:250px;
-        animation: happyBounce 0.6s infinite;
+        top:90px;
+        left:63%;
+        animation: foodAppear 1.5s ease-out forwards;
+        pointer-events:none;
+        z-index:10;
 ">
 {% endif %}
 
-<!-- ごはん拒否 -->
-{% if reaction_state == 'reject_food' %}
-<img src="{% static 'images/sweat.png' %}"
-     width="70"
+<img src="{% static character_image %}"
+     width="220"
      style="
         position:absolute;
-        left:45%;
-        bottom:250px;
+        left:50%;
+        bottom:80px;
+        transform: translateX(-50%);
+        animation: {{ character_animation }};
 ">
+
+
+　<!-- 遊ぶエフェクト -->
+{% if last_action == 'ball' or last_action == 'toy' or last_action == 'bike' %}
+
+<img class="effect-icon"
+     src="{% static 'images/'|add:last_action|add:'.png' %}"
+     width="90"
+     style="
+        position:absolute;
+        top:90px;
+        left:63%;
+        animation:
+            bounceBall 0.5s ease-in-out 2,
+            foodAppear 1.5s ease-out forwards;
+        pointer-events:none;
+        z-index:10;
+">
+
 {% endif %}
-
-
-            <!-- ごはん -->
-            {% if last_action == 'food' %}
-            <img class="effect-icon"
-                 src="{% static 'images/food.png' %}"
-                 width="100"
-                 style="
-                    position: absolute;
-                    bottom: 180px;
-                    left: 55%;
-                    transform: translateX(-50%);
-                    animation: foodAppear 1.5s ease-out forwards;
-pointer-events: none;
-                 ">
-            {% endif %}
-
-            <!-- ボール -->
-            {% if last_action == 'play' %}
-            <img class="effect-icon"
-                 src="{% static 'images/ball.png' %}"
-                 width="90"
-                 style="
-                    position: absolute;
-                    bottom: 170px;
-                    left: 58%;
-                    transform: translateX(-50%);
-                    animation: foodAppear 1.5s ease-out forwards;
-pointer-events: none;
-                 ">
-            {% endif %}
 
             <!-- Zzz -->
             {% if last_action == 'rest' %}
@@ -275,50 +260,6 @@ pointer-events: none;
                  ">
             {% endif %}
 
-            <!-- ハート -->
-{% if show_heart %}
-<img src="{% static 'images/heart.png' %}"
-     width="60"
-     style="
-        position: absolute;
-        top: 40px;
-        right: 40px;
-     ">
-{% endif %}
-
-<!-- 汗 -->
-{% if show_sweat %}
-<img src="{% static 'images/sweat.png' %}"
-     width="60"
-     style="
-        position: absolute;
-        top: 120px;
-        right: 40px;
-     ">
-{% endif %}
-
-<!-- 絶好調 -->
-{% if show_good %}
-<img src="{% static 'images/good.png' %}"
-     width="80"
-     style="
-        position: absolute;
-        top: 200px;
-        right: 30px;
-     ">
-{% endif %}
-
-<!-- 空腹 -->
-<!-- 空腹 -->
-{% if show_food_icon %}
-<img src="{% static 'images/food-icon.png' %}"
-     width="60"
-     style="
-        position: absolute;
-        top: 280px;
-        right: 40px;
-     ">
-{% endif %}
 
         </div>
 
@@ -329,34 +270,104 @@ pointer-events: none;
     <!-- 行動 -->
     <h2>行動</h2>
 
-    <form method="GET">
+<!-- メインボタン -->
+<form method="GET">
 
-        <button class="action-button"
-                type="submit"
-                name="action"
-                value="food"
-                {% if game_end %}disabled{% endif %}>
-            ごはん
-        </button>
+    <button class="action-button"
+            type="submit"
+            name="menu"
+            value="food"
+            {% if game_end %}disabled{% endif %}>
+        ごはん
+    </button>
 
-        <button class="action-button"
-                type="submit"
-                name="action"
-                value="play"
-                {% if game_end %}disabled{% endif %}>
-            あそぶ
-        </button>
+    <button class="action-button"
+            type="submit"
+            name="menu"
+            value="play"
+            {% if game_end %}disabled{% endif %}>
+        あそぶ
+    </button>
 
-        <button class="action-button"
-                type="submit"
-                name="action"
-                value="rest"
-                {% if game_end %}disabled{% endif %}>
-            休む
-        </button>
+    <button class="action-button"
+            type="submit"
+            name="action"
+            value="rest"
+            {% if game_end %}disabled{% endif %}>
+        休む
+    </button>
 
-    </form>
+</form>
 
+
+<!-- ごはんメニュー -->
+{% if menu == 'food' %}
+
+<form method="GET">
+
+    <input type="hidden"
+           name="menu"
+           value="food">
+
+    <button class="action-button"
+            type="submit"
+            name="action"
+            value="salad">
+        サラダ
+    </button>
+
+    <button class="action-button"
+            type="submit"
+            name="action"
+            value="snack">
+        おやつ
+    </button>
+
+    <button class="action-button"
+            type="submit"
+            name="action"
+            value="meal">
+        肉
+    </button>
+
+</form>
+
+{% endif %}
+
+
+<!-- あそぶメニュー -->
+{% if menu == 'play' %}
+
+<form method="GET">
+
+    <input type="hidden"
+           name="menu"
+           value="play">
+
+    <button class="action-button"
+            type="submit"
+            name="action"
+            value="ball">
+        ボール
+    </button>
+
+    <button class="action-button"
+            type="submit"
+            name="action"
+            value="toy">
+        おもちゃ
+    </button>
+
+    <button class="action-button"
+            type="submit"
+            name="action"
+            value="bike">
+        自転車
+    </button>
+
+</form>
+
+{% endif %}
 
     <!-- リセット -->
     <form method="GET">

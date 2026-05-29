@@ -5,6 +5,7 @@ from zoneinfo import ZoneInfo
 
 def home(request):
 
+
     # 初回だけ初期値を作る
     if (
             'satisfaction' not in request.session
@@ -15,6 +16,7 @@ def home(request):
         request.session['growth'] = 0
         request.session['fullness'] = 50
         request.session['turn'] = 1
+        request.session['character_state'] = 'normal'
 
     # セッションから現在値を取得
     satisfaction = request.session['satisfaction']
@@ -23,122 +25,129 @@ def home(request):
     fullness = request.session['fullness']
     turn = request.session['turn']
 
+    before_energy = energy
+    before_fullness = fullness
+    before_satisfaction = satisfaction
+
     # ボタン判定
     action = request.GET.get('action')
     event_message = ""
     reaction_state = "normal"
+    menu = request.GET.get('menu', '')
+
+    # 行動後はメニューを閉じる
+    if action in [
+        'salad', 'snack', 'meal',
+        'ball', 'toy', 'bike',
+        'rest'
+    ]:
+        menu = ''
 
     # 最後の行動
     last_action = action
 
-    # ゲーム終了判定
+    food_image = ""
+
+    # 更新後のゲーム終了判定
     game_end = False
 
-    if energy <= 0 or growth >= 50:
+    if energy <= 0 or growth >= 100:
         game_end = True
 
-    # ごはん
-    if action == 'food' and not game_end:
+    # -------------------------
+    # ごはん系
+    # -------------------------
 
-        # 空腹 → 大喜び
-        if fullness <= 20:
-            satisfaction += 20
-            energy += 10
-            fullness += 30
-            growth += 4
+    # サラダ
+    if action == 'salad' and not game_end:
 
-            reaction_state = "happy_food"
+        satisfaction += 10
+        energy += 8
+        fullness += 10
+        growth += 0
 
-        # 満腹 → 嫌がる
-        elif fullness >= 80:
-            satisfaction -= 10
-            energy -= 5
-
-            reaction_state = "reject_food"
-
-        # 普通
-        else:
-            satisfaction += 10
-            energy += 5
-            fullness += 30
-            growth += 2
-
-            reaction_state = "normal_food"
-
+        reaction_state = "normal_food"
         turn += 1
 
 
+    # おやつ
+    elif action == 'snack' and not game_end:
 
+        satisfaction += 25
+        energy -= 5
+        fullness += 8
+        growth += 0
 
-    elif action == 'play' and not game_end:
-
-        # 元気 → 大喜び
-
-        if energy >= 70:
-
-            satisfaction += 20
-
-            energy -= 10
-
-            growth += 5
-
-            fullness -= 15
-
-            reaction_state = "happy_play"
-
-
-        # 疲れ → 嫌がる
-
-        elif energy <= 20:
-
-            satisfaction -= 10
-
-            growth -= 2
-
-            reaction_state = "tired_play"
-
-
-        # 普通
-
-        else:
-
-            satisfaction += 15
-
-            energy -= 10
-
-            growth += 3
-
-            fullness -= 15
-
-            reaction_state = "normal_play"
-
+        reaction_state = "happy_food"
         turn += 1
 
 
+    # 肉
+    elif action == 'meal' and not game_end:
 
+        satisfaction += 5
+        energy += 15
+        fullness += 30
+        growth += 2
+
+        reaction_state = "normal_food"
+        turn += 1
+
+    # -------------------------
+    # あそぶ系
+    # -------------------------
+
+    if action == 'ball' and not game_end:
+
+        satisfaction += 25
+        energy -= 20
+        fullness -= 15
+        growth += 0
+
+        reaction_state = "happy_play"
+        turn += 1
+
+
+    elif action == 'toy' and not game_end:
+
+        satisfaction += 10
+        energy -= 5
+        fullness -= 5
+        growth += 2
+
+        reaction_state = "normal_play"
+        turn += 1
+
+
+    elif action == 'bike' and not game_end:
+
+        satisfaction += 8
+        energy += 12
+        fullness -= 15
+        growth += 1
+
+        reaction_state = "normal_play"
+        turn += 1
+
+
+    # -------------------------
+    # 休む
+    # -------------------------
 
     elif action == 'rest' and not game_end:
-
-        # 疲れている → 気持ちいい
 
         if energy <= 20:
 
             energy += 30
-
             satisfaction += 10
 
             reaction_state = "good_rest"
 
-
         else:
 
             satisfaction -= 5
-
             energy += 20
-
             fullness -= 5
-
-            growth += 1
 
             reaction_state = "normal_rest"
 
@@ -147,12 +156,15 @@ def home(request):
 
 
     # リセット
-    elif action == 'reset':
+    if action == 'reset':
         satisfaction = 50
         energy = 50
         growth = 0
         fullness = 50
         turn = 1
+        character_state = "normal"
+
+        request.session['character_state'] = 'normal'
 
     # イベントメッセージ
     event_message = ""
@@ -174,96 +186,134 @@ def home(request):
 
         # 成長
         elif event == 3:
-            growth += 5
+            growth += 2
             event_message = "大きく成長した！"
 
         # 何もない
         else:
             event_message = "特になにもなかった"
 
-    # パラメータ上限・下限
 
+
+    # -------------------------
+    # パラメータ依存イベント
+    # -------------------------
+
+    # 初回アクセスだけnormal
+    if action is None and menu == '':
+        character_state = "normal"
+
+    # ごはん・あそぶを押しただけなら前回維持
+    else:
+        character_state = request.session.get(
+            'character_state',
+            'normal'
+        )
+
+    # 実際に行動した時だけ判定する
+    action_list = [
+        'salad', 'snack', 'meal',
+        'ball', 'toy', 'bike',
+        'rest'
+    ]
+
+    if action in action_list:
+
+        # 行動時だけnormalに戻して再判定
+        character_state = "normal"
+
+        # 元気が低い
+        if energy <= 30:
+            growth -= 2
+            event_message += " 疲れているみたい…成長度ダウン"
+            character_state = "tired"
+
+        # 満足度が高い
+        if satisfaction >= 80:
+            growth += 1
+            event_message += " ごきげん！成長度アップ"
+            character_state = "happy"
+
+        # 満腹すぎる
+        if fullness >= 70:
+            satisfaction -= 5
+            growth -= 2
+            event_message += " お腹いっぱいで遊びたくない…"
+            character_state = "tired"
+
+        # 満腹なのにごはん
+        if (
+                fullness >= 70
+                and action in ['salad', 'snack', 'meal']
+        ):
+            satisfaction -= 10
+            energy -= 5
+            event_message += " お腹いっぱいなのに食べすぎた…"
+            character_state = "tired"
+
+        # 元気なのに休む
+        if energy >= 90 and action == 'rest':
+            satisfaction -= 15
+            growth -= 2
+            event_message += " まだ元気なのに寝ちゃった…"
+            character_state = "tired"
+
+        # 疲れているのに遊ぶ
+        if (
+                energy <= 30
+                and action in ['ball', 'toy', 'bike']
+        ):
+            energy -= 10
+            satisfaction -= 5
+            event_message += " 疲れているのに遊んでしまった…"
+            character_state = "tired"
+
+        # 空腹なのに遊ぶ
+        if (
+                fullness <= 30
+                and action in ['ball', 'toy', 'bike']
+        ):
+            satisfaction -= 10
+            event_message += " お腹が空いて遊べない…"
+            character_state = "tired"
+
+        # 絶好調
+        if satisfaction >= 80 and energy >= 80:
+            growth += 2
+            event_message += " 絶好調！すごく元気！"
+            character_state = "happy"
+
+        # 弱っている状態
+        if energy <= 20 and fullness <= 20:
+            growth -= 2
+            event_message += " 弱っているみたい…"
+            character_state = "tired"
+
+    # 最終値を制限
     satisfaction = max(0, min(100, satisfaction))
     energy = max(0, min(100, energy))
-    growth = max(0, min(50, growth))
+    growth = max(0, min(100, growth))
     fullness = max(0, min(100, fullness))
 
-    # 更新後の値を保存
+    # セッション保存
     request.session['satisfaction'] = satisfaction
     request.session['energy'] = energy
     request.session['growth'] = growth
     request.session['fullness'] = fullness
     request.session['turn'] = turn
+    request.session['event_message'] = event_message
+    request.session['character_state'] = character_state
 
+    print("energy", energy)
+    print("fullness", fullness)
+    print("satisfaction", satisfaction)
 
-    # パラメータ依存イベント
-
-    # 元気が低い
-    if energy <= 20:
-        growth -= 2
-        event_message += " 疲れているみたい…成長度ダウン"
-
-    # 満足度が高い
-    if satisfaction >= 100:
-        growth += 3
-        event_message += " ごきげん！成長度アップ"
-
-    # 満腹すぎる
-    if fullness >= 80:
-        satisfaction -= 5
-        growth -= 2
-        event_message += " お腹いっぱいで遊びたくない…"
-
-    # 満腹なのにごはん
-    if fullness >= 80 and action == 'food':
-        satisfaction -= 10
-        energy -= 5
-        event_message += " お腹いっぱいで食べられない…"
-
-    # 元気が低いのに遊ぶ
-    if energy <= 20 and action == 'play':
-        satisfaction -= 10
-        growth -= 3
-        event_message += " 疲れていて遊べないみたい…"
-
-    # 絶好調
-    if satisfaction >= 80 and energy >= 80:
-        growth += 5
-        event_message += " 絶好調！すごく元気！"
-
-    # 弱っている状態
-    if energy <= 20 and fullness <= 20:
-        growth -= 2
-        event_message += " 弱っているみたい…"
-
-    # -------------------------
-    # キャラクター状態判定
-    # -------------------------
-
-    # 初期値
-    character_state = "normal"
-
-    # 疲れ優先
-    if energy <= 20:
-        character_state = "tired"
-
-    # 空腹
-    elif fullness <= 20:
-        character_state = "hungry"
-
-    # 満腹
-    elif fullness >= 80:
-        character_state = "full"
-
-    # ごきげん
-    elif satisfaction >= 80 or energy >= 80:
-        character_state = "happy"
 
     # -------------------------
     # 成長段階 × 状態画像
     # -------------------------
 
-    if growth < 20:
+    if growth < 40:
 
         if character_state == "happy":
             character_image = 'images/character1-happy.png'
@@ -271,29 +321,17 @@ def home(request):
         elif character_state == "tired":
             character_image = 'images/character1-tired.png'
 
-        elif character_state == "hungry":
-            character_image = 'images/character1-hungry.png'
-
-        elif character_state == "full":
-            character_image = 'images/character1-full.png'
-
         else:
             character_image = 'images/character1.png'
 
 
-    elif growth < 50:
+    elif growth < 100:
 
         if character_state == "happy":
             character_image = 'images/character2-happy.png'
 
         elif character_state == "tired":
             character_image = 'images/character2-tired.png'
-
-        elif character_state == "hungry":
-            character_image = 'images/character2-hungry.png'
-
-        elif character_state == "full":
-            character_image = 'images/character2-full.png'
 
         else:
             character_image = 'images/character2.png'
@@ -323,10 +361,6 @@ def home(request):
         character_animation = "floatCharacter 2s ease-in-out infinite"
 
 
-    # 更新後のゲーム終了判定
-    if energy <= 0 or growth >= 50:
-        game_end = True
-
     # ゲーム状態
     game_status = ""
 
@@ -335,7 +369,7 @@ def home(request):
         game_status = "つかれて眠ってしまった…ゲームオーバー"
 
     # エンディング
-    elif growth >= 50:
+    elif growth >= 100:
         game_status = "大きく成長した！ゲームクリア！"
 
     # 日本時間を取得
@@ -352,29 +386,6 @@ def home(request):
     else:
         background_image = 'images/night.png'
 
-    # -------------------------
-    # 感情アイコン
-    # -------------------------
-    show_heart = False
-    show_sweat = False
-    show_good = False
-    show_food_icon = False
-
-    # 満足高
-    if satisfaction >= 80:
-        show_heart = True
-
-    # 疲れ
-    if energy <= 20:
-        show_sweat = True
-
-    # 空腹
-    if fullness <= 20:
-        show_food_icon = True
-
-    # 絶好調
-    if satisfaction >= 80 and energy >= 80:
-        show_good = True
 
     status = {
         'satisfaction': satisfaction,
@@ -388,17 +399,51 @@ def home(request):
         'game_status': game_status,
         'game_end': game_end,
         'last_action': last_action,
-        # 感情アイコン
-        'show_heart': show_heart,
-        'show_sweat': show_sweat,
-        'show_good': show_good,
-        'show_food_icon': show_food_icon,
         'character_animation': character_animation,
         'reaction_state': reaction_state,
+        'character_state': character_state,
+        "food_image": food_image,
+        'menu': menu,
+
     }
 
     return render(
         request,
         'turn_based_game/home.html',
+        status
+    )
+
+def debug_view(request):
+
+    status = {
+        'satisfaction':
+            request.session.get(
+                'satisfaction', 0
+            ),
+
+        'energy':
+            request.session.get(
+                'energy', 0
+            ),
+
+        'growth':
+            request.session.get(
+                'growth', 0
+            ),
+
+        'fullness':
+            request.session.get(
+                'fullness', 0
+            ),
+
+        'turn':
+            request.session.get(
+                'turn', 0
+            ),
+    }
+
+    return render(
+        request,
+        'turn_based_game/debug.html',
         status
     )
