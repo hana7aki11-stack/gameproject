@@ -313,6 +313,17 @@ def home(request):
     # 成長段階 × 状態画像
     # -------------------------
 
+    if growth < 20:
+
+        if character_state == "happy":
+            character_image = 'images/character0-happy.png'
+
+        elif character_state == "tired":
+            character_image = 'images/character0-tired.png'
+
+        else:
+            character_image = 'images/character0.png'
+
     if growth < 40:
 
         if character_state == "happy":
@@ -324,8 +335,7 @@ def home(request):
         else:
             character_image = 'images/character1.png'
 
-
-    elif growth < 100:
+    elif growth < 80:
 
         if character_state == "happy":
             character_image = 'images/character2-happy.png'
@@ -336,10 +346,21 @@ def home(request):
         else:
             character_image = 'images/character2.png'
 
+    elif growth < 100:
+
+        if character_state == "happy":
+            character_image = 'images/character3-happy.png'
+
+        elif character_state == "tired":
+            character_image = 'images/character3-tired.png'
+
+        else:
+            character_image = 'images/character3.png'
+
 
     else:
 
-        character_image = 'images/character3.png'
+        character_image = 'images/character4.png'
 
     # -------------------------
     # 状態ごとの動き
