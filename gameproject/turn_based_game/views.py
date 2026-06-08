@@ -324,7 +324,7 @@ def home(request):
         else:
             character_image = 'images/character0.png'
 
-    if growth < 40:
+    elif growth < 40:
 
         if character_state == "happy":
             character_image = 'images/character1-happy.png'
@@ -357,9 +357,7 @@ def home(request):
         else:
             character_image = 'images/character3.png'
 
-
     else:
-
         character_image = 'images/character4.png'
 
     # -------------------------
