@@ -5,7 +5,10 @@
 
 <head>
     <meta charset="UTF-8">
-    <title>ターン制育成ゲーム</title>
+    <h1>ターン制育成ゲーム</h1>
+
+    <p>{{ turn }}日目</p>
+    <p> 残り時間：{{ remaining_time }}時間</p>
 
     <style>
 
@@ -14,13 +17,39 @@
             text-align: center;
         }
 
+
+
         .action-button {
             font-size: 24px;
             padding: 15px 30px;
             margin: 10px;
             border-radius: 10px;
             cursor: pointer;
+            min-width: 160px;
         }
+
+        .sub-action-button {
+    font-size: 18px;
+    padding: 10px 20px;
+    margin: 8px;
+    border-radius: 10px;
+    cursor: pointer;
+    min-width: 120px;
+
+    background-color: #f5f5f5;
+    color: #333;
+    border: 1px solid #ccc;
+}
+
+        .sub-action-button:hover {
+    background-color: #e8e8e8;
+}
+
+        .sub-action-button:disabled {
+    background-color: #dddddd;
+    color: #888888;
+    cursor: not-allowed;
+}
 
         .parameter-box {
             display: flex;
@@ -177,7 +206,7 @@
 
 <body>
 
-    <h1>ターン制育成ゲーム</h1>
+
 
     <!-- 背景＋パラメータ -->
    <div style="
@@ -190,13 +219,67 @@
         <div style="
             width: 600px;
             height: 400px;
-            background-image: url('{% static background_image %}');
+            background-image:url('{% static room_wallpaper %}');
             background-size: cover;
             background-position: center;
             position: relative;
             border: 2px solid #ccc;
             border-radius: 10px;
         ">
+
+
+{% for item in placed_item_images %}
+
+<img
+    src="{% static item.image %}"
+    width="{{ item.width }}"
+    style="
+        position:absolute;
+
+        top:{{ item.top }};
+        bottom:{{ item.bottom }};
+
+        left:{{ item.left }};
+        right:{{ item.right }};
+
+        transform:{{ item.transform }};
+        z-index:5;
+    "
+>
+
+{% endfor %}
+
+
+<!-- 獲得アイコン -->
+{% if item_get %}
+
+<img
+    src="{% static get_item_image %}"
+    width="80"
+    style="
+        position:absolute;
+        left:calc(50% - 100px);
+        bottom:220px;
+        z-index:30;
+        animation: foodAppear 2s ease-out forwards;
+    "
+>
+
+{% endif %}
+
+<!-- キャラクター -->
+<img
+    src="{% static character_image %}"
+    width="220"
+    style="
+        position:absolute;
+        left:50%;
+        bottom:80px;
+        transform:translateX(-50%);
+        z-index:10;
+        animation: {{ character_animation }};
+    "
+>
 
          <!-- キャラクター -->
 
@@ -215,15 +298,7 @@
 ">
 {% endif %}
 
-<img src="{% static character_image %}"
-     width="220"
-     style="
-        position:absolute;
-        left:50%;
-        bottom:80px;
-        transform: translateX(-50%);
-        animation: {{ character_animation }};
-">
+
 
 
 　<!-- 遊ぶエフェクト -->
@@ -267,37 +342,55 @@ pointer-events: none;
 
     </div>
 
+
+    {% if game_status %}
+
+<h2>{{ game_status }}</h2>
+
+{% endif %}
+
+
+
     <!-- 行動 -->
     <h2>行動</h2>
+
+    {% if remaining_time == 0 and not game_end %}
+    <p style="color: red;">
+        今日の時間を使い切りました。「次の日へ」を押してください。
+    </p>
+{% endif %}
+
 
 <!-- メインボタン -->
 <form method="GET">
 
     <button class="action-button"
-            type="submit"
-            name="menu"
-            value="food"
-            {% if game_end %}disabled{% endif %}>
-        ごはん
+        type="submit"
+        name="menu"
+        value="food"
+        {% if game_end %}disabled{% endif %}>
+    ごはん
     </button>
 
     <button class="action-button"
-            type="submit"
-            name="menu"
-            value="play"
-            {% if game_end %}disabled{% endif %}>
-        あそぶ
+        type="submit"
+        name="menu"
+        value="play"
+        {% if game_end %}disabled{% endif %}>
+    あそぶ
     </button>
+
 
     <button class="action-button"
-            type="submit"
-            name="action"
-            value="rest"
-            {% if game_end %}disabled{% endif %}>
-        休む
-    </button>
+        type="submit"
+        name="action"
+        value="rest"
+        {% if remaining_time < 2 or game_end %}disabled{% endif %}>
+    休む
+</button>
 
-</form>
+
+    </form>
 
 
 <!-- ごはんメニュー -->
@@ -309,25 +402,28 @@ pointer-events: none;
            name="menu"
            value="food">
 
-    <button class="action-button"
-            type="submit"
-            name="action"
-            value="salad">
-        サラダ
+    <button class="sub-action-button"
+        type="submit"
+        name="action"
+        value="salad"
+        {% if remaining_time < 1 or game_end %}disabled{% endif %}>
+    サラダ
     </button>
 
-    <button class="action-button"
-            type="submit"
-            name="action"
-            value="snack">
-        おやつ
+    <button class="sub-action-button"
+        type="submit"
+        name="action"
+        value="snack"
+        {% if remaining_time < 1 or game_end %}disabled{% endif %}>
+    おやつ
     </button>
 
-    <button class="action-button"
-            type="submit"
-            name="action"
-            value="meal">
-        肉
+    <button class="sub-action-button"
+        type="submit"
+        name="action"
+        value="meal"
+        {% if remaining_time < 2 or game_end %}disabled{% endif %}>
+    肉
     </button>
 
 </form>
@@ -344,30 +440,162 @@ pointer-events: none;
            name="menu"
            value="play">
 
-    <button class="action-button"
-            type="submit"
-            name="action"
-            value="ball">
-        ボール
+   <button class="sub-action-button"
+        type="submit"
+        name="action"
+        value="ball"
+        {% if remaining_time < 2 or game_end %}disabled{% endif %}>
+    ボール
+   </button>
+
+    <button class="sub-action-button"
+        type="submit"
+        name="action"
+        value="toy"
+        {% if remaining_time < 1 or game_end %}disabled{% endif %}>
+    おもちゃ
     </button>
 
-    <button class="action-button"
-            type="submit"
-            name="action"
-            value="toy">
-        おもちゃ
-    </button>
-
-    <button class="action-button"
-            type="submit"
-            name="action"
-            value="bike">
-        自転車
+    <button class="sub-action-button"
+        type="submit"
+        name="action"
+        value="bike"
+        {% if remaining_time < 3 or game_end %}disabled{% endif %}>
+    自転車
     </button>
 
 </form>
 
 {% endif %}
+
+    <br>
+
+    <!-- 次の日へ -->
+<form method="GET">
+
+    <button class="action-button"
+            type="submit"
+            name="action"
+            value="next_day"
+            {% if game_end %}disabled{% endif %}>
+        次の日へ
+    </button>
+
+</form>
+
+<br>
+<!-- 持ち物一覧 -->
+<form method="GET">
+
+    <button class="action-button"
+            type="submit"
+            name="menu"
+            value="items">
+        持ち物一覧
+    </button>
+
+</form>
+
+
+
+ {% if menu == 'items' %}
+
+<h2>持ち物一覧</h2>
+    {% if menu == 'items' %}
+
+<p>
+    所持数：{{ owned_count }} / {{ total_count }}
+    （{{ collection_rate }}%）
+</p>
+
+{% endif %}
+
+
+{% if items %}
+
+<div style="
+    display:flex;
+    flex-wrap:wrap;
+    justify-content:center;
+    gap:20px;
+">
+
+    {% for item in items %}
+
+    <div style="
+        width:120px;
+        text-align:center;
+        border:1px solid #ccc;
+        border-radius:10px;
+        padding:10px;
+    ">
+
+        <img
+            src="{% static 'images/'|add:item|add:'.png' %}"
+            width="80"
+        >
+
+        <p>{{ item }}</p>
+
+       {% if item not in placed_items %}
+
+    <form method="GET">
+
+        <input type="hidden"
+               name="menu"
+               value="items">
+
+        <input type="hidden"
+               name="action"
+               value="place">
+
+        <input type="hidden"
+               name="item"
+               value="{{ item }}">
+
+        <button type="submit">
+            配置
+        </button>
+
+    </form>
+
+{% else %}
+
+    <form method="GET" style="display:inline;">
+
+        <input type="hidden"
+               name="menu"
+               value="items">
+
+        <input type="hidden"
+               name="action"
+               value="remove">
+
+        <input type="hidden"
+               name="item"
+               value="{{ item }}">
+
+        <button type="submit">
+            しまう
+        </button>
+
+    </form>
+
+{% endif %}
+    </div>
+
+    {% endfor %}
+
+</div>
+
+{% else %}
+
+<p>まだアイテムを持っていません。</p>
+
+{% endif %}
+
+{% endif %}
+
 
     <!-- リセット -->
     <form method="GET">

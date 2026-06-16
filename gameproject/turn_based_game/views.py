@@ -1,29 +1,250 @@
-from django.shortcuts import render
+from django.shortcuts import render, redirect
 import random
 from datetime import datetime
 from zoneinfo import ZoneInfo
+from django.shortcuts import redirect
+from urllib.parse import urlencode
+
+item_categories = {
+    'plant': 'plant',
+    'plant-star': 'plant',
+    'plant-kawaii': 'plant',
+
+    'sofa': 'sofa',
+    'sofa-star': 'sofa',
+    'sofa-kawaii': 'sofa',
+
+    'rug': 'rug',
+    'rug-star': 'rug',
+    'rug-kawaii': 'rug',
+
+    'clock': 'clock',
+    'clock-star': 'clock',
+    'clock-kawaii': 'clock',
+}
+
 
 def home(request):
-
-
     # 初回だけ初期値を作る
-    if (
-            'satisfaction' not in request.session
-            or 'fullness' not in request.session
-    ):
+
+    if 'satisfaction' not in request.session:
         request.session['satisfaction'] = 50
+
+    if 'energy' not in request.session:
         request.session['energy'] = 50
+
+    if 'growth' not in request.session:
         request.session['growth'] = 0
+
+    if 'fullness' not in request.session:
         request.session['fullness'] = 50
+
+    if 'turn' not in request.session:
         request.session['turn'] = 1
+
+    if 'remaining_time' not in request.session:
+        request.session['remaining_time'] = 6
+
+    if 'character_state' not in request.session:
         request.session['character_state'] = 'normal'
 
+    # 初期壁紙
+    if 'room_wallpaper' not in request.session:
+        request.session['room_wallpaper'] = 'images/room-default.png'
+
+    if 'items' not in request.session:
+        request.session['items'] = []
+
+    if 'placed_items' not in request.session:
+        request.session['placed_items'] = []
+
     # セッションから現在値を取得
+
     satisfaction = request.session['satisfaction']
     energy = request.session['energy']
     growth = request.session['growth']
     fullness = request.session['fullness']
+
     turn = request.session['turn']
+    remaining_time = request.session['remaining_time']
+
+    character_state = request.session['character_state']
+
+    items = request.session['items']
+    placed_items = request.session['placed_items']
+
+    room_wallpaper = request.session['room_wallpaper']
+
+    # ボタン判定
+    action = request.GET.get('action')
+
+    # ゲーム終了判定
+    game_end = energy <= 0 or growth >= 100
+
+    # 行動ごとの消費時間
+    action_cost = {
+        'salad': 1,
+        'snack': 1,
+        'meal': 2,
+        'ball': 2,
+        'toy': 1,
+        'bike': 3,
+        'rest': 2,
+    }
+
+    # 行動可能か判定
+    can_act = (
+            action in action_cost
+            and remaining_time >= action_cost[action]
+            and not game_end
+    )
+
+    # 図鑑用の全アイテム一覧
+    all_items = [
+        'plant',
+        'sofa',
+        'rug',
+        'clock',
+
+        'room-kawaii',
+        'room-star',
+        'room-sky',
+
+        'sofa-star',
+        'plant-star',
+        'rug-star',
+        'clock-star',
+
+        'sofa-kawaii',
+        'plant-kawaii',
+        'rug-kawaii',
+        'clock-kawaii',
+    ]
+
+    owned_count = len(items)
+    total_count = len(all_items)
+
+    collection_rate = int(
+        owned_count / total_count * 100
+    )
+
+    item_get = False
+    get_item_image = ""
+
+    furniture_positions = {
+
+        # ソファ系
+        'sofa': {
+            'bottom': '20px',
+            'left': '30px',
+            'width': '240'
+        },
+
+        'sofa-star': {
+            'bottom': '40px',
+            'left': '30px',
+            'width': '240'
+        },
+
+        'sofa-kawaii': {
+            'bottom': '50px',
+            'left': '30px',
+            'width': '240'
+        },
+
+        # 植物系
+        'plant': {
+            'bottom': '20px',
+            'right': '-40px',
+            'width': '280'
+        },
+
+        'plant-star': {
+            'bottom': '20px',
+            'right': '-100px',
+            'width': '400'
+        },
+
+        'plant-kawaii': {
+            'bottom': '20px',
+            'right': '-40px',
+            'width': '280'
+        },
+
+        # ラグ系
+        'rug': {
+            'bottom': '0px',
+            'left': '50%',
+            'transform': 'translateX(-50%)',
+            'width': '160'
+        },
+
+        'rug-star': {
+            'bottom': '-10px',
+            'left': '50%',
+            'transform': 'translateX(-50%)',
+            'width': '250'
+        },
+
+        'rug-kawaii': {
+            'bottom': '-5px',
+            'left': '50%',
+            'transform': 'translateX(-50%)',
+            'width': '160'
+        },
+
+        # 時計系
+        'clock': {
+            'top': '20px',
+            'right': '170px',
+            'width': '100'
+        },
+
+        'clock-star': {
+            'top': '20px',
+            'right': '170px',
+            'width': '100'
+        },
+
+        'clock-kawaii': {
+            'top': '20px',
+            'right': '170px',
+            'width': '100'
+        },
+    }
+
+    placed_item_images = []
+
+    for item in placed_items:
+
+        # 壁紙は家具一覧に追加しない
+        if item.startswith('room-'):
+            continue
+
+        position = furniture_positions.get(item, {})
+
+        placed_item_images.append({
+            'name': item,
+            'image': f'images/{item}.png',
+
+            'top': position.get('top', 'auto'),
+            'bottom': position.get('bottom', 'auto'),
+            'left': position.get('left', 'auto'),
+            'right': position.get('right', 'auto'),
+
+            'transform': position.get(
+                'transform',
+                'none'
+            ),
+
+            'width': position.get(
+                'width',
+                '120'
+            ),
+        })
+
+    item_get = False
+    get_item_image = ""
 
     before_energy = energy
     before_fullness = fullness
@@ -31,6 +252,12 @@ def home(request):
 
     # ボタン判定
     action = request.GET.get('action')
+
+    # リセット
+    if action == "reset":
+        request.session.flush()
+        return redirect('/')
+
     event_message = ""
     reaction_state = "normal"
     menu = request.GET.get('menu', '')
@@ -39,7 +266,7 @@ def home(request):
     if action in [
         'salad', 'snack', 'meal',
         'ball', 'toy', 'bike',
-        'rest'
+        'rest', 'next_day'
     ]:
         menu = ''
 
@@ -48,11 +275,6 @@ def home(request):
 
     food_image = ""
 
-    # 更新後のゲーム終了判定
-    game_end = False
-
-    if energy <= 0 or growth >= 100:
-        game_end = True
 
     # -------------------------
     # ごはん系
@@ -66,8 +288,10 @@ def home(request):
         fullness += 10
         growth += 0
 
+        remaining_time -= 1
+
         reaction_state = "normal_food"
-        turn += 1
+
 
 
     # おやつ
@@ -78,8 +302,10 @@ def home(request):
         fullness += 8
         growth += 0
 
+        remaining_time -= 1
+
         reaction_state = "happy_food"
-        turn += 1
+
 
 
     # 肉
@@ -90,8 +316,10 @@ def home(request):
         fullness += 30
         growth += 2
 
+        remaining_time -= 2
+
         reaction_state = "normal_food"
-        turn += 1
+
 
     # -------------------------
     # あそぶ系
@@ -104,8 +332,10 @@ def home(request):
         fullness -= 15
         growth += 0
 
+        remaining_time -= 2
+
         reaction_state = "happy_play"
-        turn += 1
+
 
 
     elif action == 'toy' and not game_end:
@@ -115,8 +345,10 @@ def home(request):
         fullness -= 5
         growth += 2
 
+        remaining_time -= 1
+
         reaction_state = "normal_play"
-        turn += 1
+
 
 
     elif action == 'bike' and not game_end:
@@ -126,20 +358,24 @@ def home(request):
         fullness -= 15
         growth += 1
 
+        remaining_time -= 3
+
         reaction_state = "normal_play"
-        turn += 1
+
 
 
     # -------------------------
     # 休む
     # -------------------------
 
-    elif action == 'rest' and not game_end:
+    elif action == 'rest' and can_act:
 
         if energy <= 20:
 
             energy += 30
             satisfaction += 10
+
+            remaining_time -= 2
 
             reaction_state = "good_rest"
 
@@ -149,22 +385,82 @@ def home(request):
             energy += 20
             fullness -= 5
 
+            remaining_time -= 2
+
             reaction_state = "normal_rest"
 
+
+    #次の日へ
+    elif action == 'next_day' and not game_end:
+
         turn += 1
+        remaining_time = 6
+
+        fullness -= 20
+        energy -= 10
+        satisfaction -= 5
+
+        reaction_state = "normal"
+
+
+    # 持ち物
+    if action == "place":
+
+        item = request.GET.get("item")
+
+        # 壁紙の場合
+        if item.startswith("room-"):
+            request.session["room_wallpaper"] = (
+                f"images/{item}.png"
+            )
+
+            return redirect("/?menu=items")
+
+        # 家具の場合
+        placed_items = request.session.get(
+            "placed_items",
+            []
+        )
+
+        new_category = item_categories.get(item)
+
+        for placed_item in placed_items[:]:
+
+            placed_category = item_categories.get(
+                placed_item
+            )
+
+            if placed_category == new_category:
+                placed_items.remove(placed_item)
+
+
+        # （カテゴリ重複チェックなど）
+
+        placed_items.append(item)
+
+        request.session["placed_items"] = placed_items
+
+        return redirect("/?menu=items")
 
 
 
-    # リセット
-    if action == 'reset':
-        satisfaction = 50
-        energy = 50
-        growth = 0
-        fullness = 50
-        turn = 1
-        character_state = "normal"
 
-        request.session['character_state'] = 'normal'
+    if action == 'remove':
+
+        item = request.GET.get('item')
+
+        placed_items = request.session.get(
+            'placed_items',
+            []
+        )
+
+        if item in placed_items:
+            placed_items.remove(item)
+
+        request.session['placed_items'] = placed_items
+
+        return redirect('/?menu=items')
+
 
     # イベントメッセージ
     event_message = ""
@@ -230,6 +526,7 @@ def home(request):
 
         # 満足度が高い
         if satisfaction >= 80:
+
             growth += 1
             event_message += " ごきげん！成長度アップ"
             character_state = "happy"
@@ -289,11 +586,69 @@ def home(request):
             event_message += " 弱っているみたい…"
             character_state = "tired"
 
+        # 最終的にHappyならアイテム獲得
+        if character_state == "happy":
+
+            items = request.session.get('items', [])
+
+            candidate_items = [
+                'plant',
+                'sofa',
+                'rug',
+                'clock',
+                'room-kawaii',
+                'room-star',
+                'room-sky',
+                'sofa-star',
+                'plant-star',
+                'rug-star',
+                'clock-star',
+                'sofa-kawaii',
+                'plant-kawaii',
+                'rug-kawaii',
+                'clock-kawaii',
+            ]
+
+            unlocked = [
+                item for item in candidate_items
+                if item not in items
+            ]
+
+            roll = random.randint(1, 100)
+            print("抽選結果 =", roll)
+            print("unlocked =", unlocked)
+
+            if unlocked and random.randint(1, 100) <= 20:
+                new_item = random.choice(unlocked)
+
+                items.append(new_item)
+                request.session['items'] = items
+
+                item_get = True
+                get_item_image = f'images/{new_item}.png'
+
+                event_message += f" {new_item}を獲得！"
+
     # 最終値を制限
     satisfaction = max(0, min(100, satisfaction))
     energy = max(0, min(100, energy))
     growth = max(0, min(100, growth))
     fullness = max(0, min(100, fullness))
+
+    remaining_time = max(0, remaining_time)
+
+    # ゲーム終了判定を更新
+    game_end = energy <= 0 or growth >= 100
+
+    game_status = ""
+
+    if energy <= 0:
+        game_status = "つかれて眠ってしまった…ゲームオーバー"
+
+    elif growth >= 100:
+        game_status = "大きく成長した！ゲームクリア！"
+
+
 
     # セッション保存
     request.session['satisfaction'] = satisfaction
@@ -303,6 +658,7 @@ def home(request):
     request.session['turn'] = turn
     request.session['event_message'] = event_message
     request.session['character_state'] = character_state
+    request.session['remaining_time'] = remaining_time
 
     print("energy", energy)
     print("fullness", fullness)
@@ -380,17 +736,6 @@ def home(request):
         character_animation = "floatCharacter 2s ease-in-out infinite"
 
 
-    # ゲーム状態
-    game_status = ""
-
-    # ゲームオーバー
-    if energy <= 0:
-        game_status = "つかれて眠ってしまった…ゲームオーバー"
-
-    # エンディング
-    elif growth >= 100:
-        game_status = "大きく成長した！ゲームクリア！"
-
     # 日本時間を取得
     japan_time = datetime.now(ZoneInfo("Asia/Tokyo"))
     hour = japan_time.hour
@@ -404,6 +749,12 @@ def home(request):
 
     else:
         background_image = 'images/night.png'
+
+    print("item_get =", item_get)
+    print("character_state =", character_state)
+    print("items =", request.session.get('items', []))
+    print("placed_items =", request.session.get('placed_items', []))
+    print(request.session.get('room_wallpaper'))
 
 
     status = {
@@ -421,9 +772,27 @@ def home(request):
         'character_animation': character_animation,
         'reaction_state': reaction_state,
         'character_state': character_state,
-        "food_image": food_image,
+        'food_image': food_image,
         'menu': menu,
+        'remaining_time': remaining_time,
 
+        'item_get': item_get,
+        'get_item_image': get_item_image,
+
+        'items': items,
+
+        'all_items': all_items,
+        'owned_count': owned_count,
+        'total_count': total_count,
+        'collection_rate': collection_rate,
+
+        'placed_items': placed_items,
+        'placed_item_images': placed_item_images,
+
+        'room_wallpaper': request.session.get(
+            'room_wallpaper',
+            'images/room-default.png'
+        ),
     }
 
     return render(
@@ -433,32 +802,14 @@ def home(request):
     )
 
 def debug_view(request):
-
     status = {
-        'satisfaction':
-            request.session.get(
-                'satisfaction', 0
-            ),
+        'satisfaction': request.session.get('satisfaction', 0),
+        'energy': request.session.get('energy', 0),
+        'growth': request.session.get('growth', 0),
+        'fullness': request.session.get('fullness', 0),
 
-        'energy':
-            request.session.get(
-                'energy', 0
-            ),
-
-        'growth':
-            request.session.get(
-                'growth', 0
-            ),
-
-        'fullness':
-            request.session.get(
-                'fullness', 0
-            ),
-
-        'turn':
-            request.session.get(
-                'turn', 0
-            ),
+        'turn': request.session.get('turn', 0),
+        'remaining_time': request.session.get('remaining_time', 0),
     }
 
     return render(
