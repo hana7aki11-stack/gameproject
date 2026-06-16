@@ -598,13 +598,16 @@ pointer-events: none;
 
 
     <!-- リセット -->
-    <form method="GET">
-        <button type="submit"
-                name="action"
-                value="reset">
-            リセット
-        </button>
-    </form>
+    <form method="GET"
+      onsubmit="return confirm('本当にゲームをリセットしますか？');">
+
+    <button type="submit"
+            name="action"
+            value="reset">
+        リセット
+    </button>
+
+</form>
 
 
 </body>
