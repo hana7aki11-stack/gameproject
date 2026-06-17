@@ -48,6 +48,15 @@ def home(request):
     if 'character_state' not in request.session:
         request.session['character_state'] = 'normal'
 
+    if 'play_count' not in request.session:
+        request.session['play_count'] = 0
+
+    if 'healthy_food_count' not in request.session:
+        request.session['healthy_food_count'] = 0
+
+    if 'snack_count' not in request.session:
+        request.session['snack_count'] = 0
+
     # 初期壁紙
     if 'room_wallpaper' not in request.session:
         request.session['room_wallpaper'] = 'images/room-default.png'
@@ -64,6 +73,10 @@ def home(request):
     energy = request.session['energy']
     growth = request.session['growth']
     fullness = request.session['fullness']
+
+    play_count = request.session['play_count']
+    healthy_food_count = request.session['healthy_food_count']
+    snack_count = request.session['snack_count']
 
     turn = request.session['turn']
     remaining_time = request.session['remaining_time']
@@ -281,35 +294,33 @@ def home(request):
     # -------------------------
 
     # サラダ
-    if action == 'salad' and not game_end:
+    if action == 'salad' and can_act:
+
+        healthy_food_count += 1
 
         satisfaction += 10
         energy += 8
         fullness += 10
-        growth += 0
 
         remaining_time -= 1
-
-        reaction_state = "normal_food"
 
 
 
     # おやつ
-    elif action == 'snack' and not game_end:
+    elif action == 'snack' and can_act:
+
+        snack_count += 1
 
         satisfaction += 25
         energy -= 5
         fullness += 8
-        growth += 0
 
         remaining_time -= 1
-
-        reaction_state = "happy_food"
 
 
 
     # 肉
-    elif action == 'meal' and not game_end:
+    elif action == 'meal' and can_act:
 
         satisfaction += 5
         energy += 15
@@ -325,7 +336,9 @@ def home(request):
     # あそぶ系
     # -------------------------
 
-    if action == 'ball' and not game_end:
+    elif action == 'ball' and can_act:
+
+        play_count += 1
 
         satisfaction += 25
         energy -= 20
@@ -338,7 +351,9 @@ def home(request):
 
 
 
-    elif action == 'toy' and not game_end:
+    elif action == 'toy' and can_act:
+
+        play_count += 1
 
         satisfaction += 10
         energy -= 5
@@ -351,7 +366,9 @@ def home(request):
 
 
 
-    elif action == 'bike' and not game_end:
+    elif action == 'bike' and can_act:
+
+        play_count += 1
 
         satisfaction += 8
         energy += 12
@@ -659,62 +676,57 @@ def home(request):
     request.session['event_message'] = event_message
     request.session['character_state'] = character_state
     request.session['remaining_time'] = remaining_time
+    request.session['play_count'] = play_count
+    request.session['healthy_food_count'] = healthy_food_count
+    request.session['snack_count'] = snack_count
 
     print("energy", energy)
     print("fullness", fullness)
     print("satisfaction", satisfaction)
 
 
+
     # -------------------------
-    # 成長段階 × 状態画像
+    # 顔タイプを決定
+    # -------------------------
+    if play_count >= healthy_food_count + 3 and play_count >= snack_count + 3:
+        face_type = "-active"
+
+    elif healthy_food_count >= play_count + 3 and healthy_food_count >= snack_count + 3:
+        face_type = "-gentle"
+
+    elif snack_count >= play_count + 3 and snack_count >= healthy_food_count + 3:
+        face_type = "-cheerful"
+
+    else:
+        face_type = ""
+
+    # -------------------------
+    # 成長段階を決定
     # -------------------------
 
     if growth < 20:
-
-        if character_state == "happy":
-            character_image = 'images/character0-happy.png'
-
-        elif character_state == "tired":
-            character_image = 'images/character0-tired.png'
-
-        else:
-            character_image = 'images/character0.png'
+        growth_stage = 0
 
     elif growth < 40:
-
-        if character_state == "happy":
-            character_image = 'images/character1-happy.png'
-
-        elif character_state == "tired":
-            character_image = 'images/character1-tired.png'
-
-        else:
-            character_image = 'images/character1.png'
+        growth_stage = 1
 
     elif growth < 80:
-
-        if character_state == "happy":
-            character_image = 'images/character2-happy.png'
-
-        elif character_state == "tired":
-            character_image = 'images/character2-tired.png'
-
-        else:
-            character_image = 'images/character2.png'
+        growth_stage = 2
 
     elif growth < 100:
-
-        if character_state == "happy":
-            character_image = 'images/character3-happy.png'
-
-        elif character_state == "tired":
-            character_image = 'images/character3-tired.png'
-
-        else:
-            character_image = 'images/character3.png'
+        growth_stage = 3
 
     else:
-        character_image = 'images/character4.png'
+        growth_stage = 4
+
+    # -------------------------
+    # キャラクター画像を決定
+    # -------------------------
+
+    character_image = (
+        f'images/character{growth_stage}{face_type}.png'
+    )
 
     # -------------------------
     # 状態ごとの動き

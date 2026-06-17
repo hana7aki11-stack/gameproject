@@ -18,6 +18,48 @@
         }
 
 
+        .action-card {
+    display: inline-block;
+
+    width: 180px;
+
+    margin: 10px;
+    padding: 12px;
+
+    vertical-align: top;
+
+    background-color: #fafafa;
+
+    border: 1px solid #ddd;
+    border-radius: 15px;
+
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.action-info {
+    margin-top: 10px;
+
+    text-align: left;
+
+    font-size: 14px;
+    line-height: 1.8;
+}
+
+.action-info p {
+    margin: 4px 0;
+}
+
+.up {
+    color: #4caf50;
+    font-weight: bold;
+}
+
+.down {
+    color: #f44336;
+    font-weight: bold;
+}
+
+
 
         .action-button {
             font-size: 24px;
@@ -402,29 +444,63 @@ pointer-events: none;
            name="menu"
            value="food">
 
-    <button class="sub-action-button"
-        type="submit"
-        name="action"
-        value="salad"
-        {% if remaining_time < 1 or game_end %}disabled{% endif %}>
-    サラダ
-    </button>
+    <div class="action-card">
 
-    <button class="sub-action-button"
-        type="submit"
-        name="action"
-        value="snack"
-        {% if remaining_time < 1 or game_end %}disabled{% endif %}>
-    おやつ
-    </button>
+        <button class="sub-action-button"
+                type="submit"
+                name="action"
+                value="salad"
+                {% if remaining_time < 1 or game_end %}disabled{% endif %}>
+            サラダ
+        </button>
 
-    <button class="sub-action-button"
-        type="submit"
-        name="action"
-        value="meal"
-        {% if remaining_time < 2 or game_end %}disabled{% endif %}>
-    肉
-    </button>
+        <div class="action-info">
+            <p>1時間</p>
+            <p>満足度<span class="up">↑</span></p>
+            <p>元気<span class="up">↑</span></p>
+            <p>満腹度<span class="up">↑↑</span></p>
+        </div>
+
+    </div>
+
+    <div class="action-card">
+
+        <button class="sub-action-button"
+                type="submit"
+                name="action"
+                value="snack"
+                {% if remaining_time < 1 or game_end %}disabled{% endif %}>
+            おやつ
+        </button>
+
+        <div class="action-info">
+            <p>1時間</p>
+            <p>満足度<span class="up">↑↑↑</span></p>
+            <p>元気<span class="down">↓</span></p>
+            <p>満腹度<span class="up">↑</span></p>
+        </div>
+
+    </div>
+
+    <div class="action-card">
+
+        <button class="sub-action-button"
+                type="submit"
+                name="action"
+                value="meal"
+                {% if remaining_time < 2 or game_end %}disabled{% endif %}>
+             肉
+        </button>
+
+        <div class="action-info">
+            <p>2時間</p>
+            <p>満足度<span class="up">↑</span></p>
+            <p>元気<span class="up">↑↑</span></p>
+            <p>満腹度<span class="up">↑↑↑</span></p>
+            <p>成長度<span class="up">↑</span></p>
+        </div>
+
+    </div>
 
 </form>
 
@@ -440,29 +516,64 @@ pointer-events: none;
            name="menu"
            value="play">
 
-   <button class="sub-action-button"
-        type="submit"
-        name="action"
-        value="ball"
-        {% if remaining_time < 2 or game_end %}disabled{% endif %}>
-    ボール
-   </button>
+    <div class="action-card">
 
-    <button class="sub-action-button"
-        type="submit"
-        name="action"
-        value="toy"
-        {% if remaining_time < 1 or game_end %}disabled{% endif %}>
-    おもちゃ
-    </button>
+        <button class="sub-action-button"
+                type="submit"
+                name="action"
+                value="ball"
+                {% if remaining_time < 2 or game_end %}disabled{% endif %}>
+            ボール
+        </button>
 
-    <button class="sub-action-button"
-        type="submit"
-        name="action"
-        value="bike"
-        {% if remaining_time < 3 or game_end %}disabled{% endif %}>
-    自転車
-    </button>
+        <div class="action-info">
+            <p>2時間</p>
+            <p>満足度<span class="up">↑↑↑</span></p>
+            <p>元気<span class="down">↓↓</span></p>
+            <p>満腹度<span class="down">↓↓</span></p>
+        </div>
+
+    </div>
+
+    <div class="action-card">
+
+        <button class="sub-action-button"
+                type="submit"
+                name="action"
+                value="toy"
+                {% if remaining_time < 1 or game_end %}disabled{% endif %}>
+            おもちゃ
+        </button>
+
+        <div class="action-info">
+            <p>1時間</p>
+            <p>満足度<span class="up">↑</span></p>
+            <p>元気<span class="down">↓</span></p>
+            <p>満腹度<span class="down">↓</span></p>
+            <p>成長度<span class="up">↑</span></p>
+        </div>
+
+    </div>
+
+    <div class="action-card">
+
+        <button class="sub-action-button"
+                type="submit"
+                name="action"
+                value="bike"
+                {% if remaining_time < 3 or game_end %}disabled{% endif %}>
+            自転車
+        </button>
+
+        <div class="action-info">
+            <p>3時間</p>
+            <p>満足度<span class="up">↑</span></p>
+            <p>元気<span class="up">↑↑</span></p>
+            <p>満腹度<span class="down">↓↓</span></p>
+            <p>成長度<span class="up">↑</span></p>
+        </div>
+
+    </div>
 
 </form>
 
@@ -604,7 +715,7 @@ pointer-events: none;
     <button type="submit"
             name="action"
             value="reset">
-        リセット
+        ゲームリセット
     </button>
 
 </form>
