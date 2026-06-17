@@ -701,6 +701,37 @@ def home(request):
     else:
         face_type = ""
 
+    personality_name = ""
+    personality_comment = ""
+
+    if face_type == "-active":
+        personality_name = "げんきいっぱいタイプ"
+        personality_comment = (
+            "たくさん遊んで育てたため、"
+            "活発で好奇心旺盛な性格に成長しました。"
+        )
+
+    elif face_type == "-gentle":
+        personality_name = "やさしいタイプ"
+        personality_comment = (
+            "健康的な食事を大切にしたため、"
+            "穏やかで思いやりのある性格に成長しました。"
+        )
+
+    elif face_type == "-cheerful":
+        personality_name = "むじゃきタイプ"
+        personality_comment = (
+            "おやつや楽しい時間を大切にしたため、"
+            "明るく人なつっこい性格に成長しました。"
+        )
+
+    else:
+        personality_name = "バランスタイプ"
+        personality_comment = (
+            "さまざまな行動をバランスよく行ったため、"
+            "なんでも器用にこなせる性格に成長しました。"
+        )
+
     # -------------------------
     # 成長段階を決定
     # -------------------------
@@ -721,11 +752,26 @@ def home(request):
         growth_stage = 4
 
     # -------------------------
+    # 状態を決定
+    # -------------------------
+
+    state_type = ""
+
+    # 最終形態以外のみ状態変化を反映
+    if growth_stage != 4:
+
+        if character_state == "happy":
+            state_type = "-happy"
+
+        elif character_state == "tired":
+            state_type = "-tired"
+
+    # -------------------------
     # キャラクター画像を決定
     # -------------------------
 
     character_image = (
-        f'images/character{growth_stage}{face_type}.png'
+        f'images/character{growth_stage}{face_type}{state_type}.png'
     )
 
     # -------------------------
@@ -787,6 +833,8 @@ def home(request):
         'food_image': food_image,
         'menu': menu,
         'remaining_time': remaining_time,
+        'personality_name': personality_name,
+        'personality_comment': personality_comment,
 
         'item_get': item_get,
         'get_item_image': get_item_image,

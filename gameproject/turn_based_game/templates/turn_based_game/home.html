@@ -392,6 +392,37 @@ pointer-events: none;
 {% endif %}
 
 
+{% if growth >= 100 %}
+
+<div style="
+    max-width:500px;
+    margin:20px auto;
+    padding:20px;
+    background:#fff8e1;
+    border-radius:15px;
+    border:2px solid #f0d98c;
+">
+
+    <h2>育成結果</h2>
+
+    <h3>{{ personality_name }}</h3>
+
+    <p>{{ personality_comment }}</p>
+
+    <p style="
+        margin-top:20px;
+        color:#666;
+        font-size:14px;
+    ">
+        次は違う育て方をして、
+        別の性格を目指してみましょう！
+    </p>
+
+</div>
+
+{% endif %}
+
+
 
     <!-- 行動 -->
     <h2>行動</h2>
