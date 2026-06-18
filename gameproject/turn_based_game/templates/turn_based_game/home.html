@@ -7,8 +7,29 @@
     <meta charset="UTF-8">
     <h1>ターン制育成ゲーム</h1>
 
-    <p>{{ turn }}日目</p>
-    <p> 残り時間：{{ remaining_time }}時間</p>
+    <div style="
+    display:inline-block;
+    padding:12px 24px;
+    background:#ffffffcc;
+    border-radius:12px;
+    margin-bottom:20px;
+">
+
+    <div style="
+        font-size:24px;
+        font-weight:bold;
+    ">
+        {{ date_text }}
+    </div>
+
+    <div style="
+        font-size:18px;
+        color:#666;
+    ">
+        {{ time_text }}
+    </div>
+
+</div>
 
     <style>
 
@@ -243,12 +264,171 @@
     }
 }
 
+
+        .auth-link {
+    display: inline-block;
+    padding: 10px 20px;
+    border-radius: 10px;
+    background: #f5f5f5;
+    border: 1px solid #ccc;
+    text-decoration: none;
+    color: #333;
+}
+
+       .status-panel {
+    width: 450px;
+    margin: 0 auto 20px;
+    padding: 12px;
+
+    background: #ffffffcc;
+    border-radius: 15px;
+
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.status-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.status-item span {
+    width: 55px;
+    font-size: 14px;
+    font-weight: bold;
+}
+
+.bar-bg {
+    flex: 1;
+    height: 14px;
+
+    background: #e0e0e0;
+    border-radius: 999px;
+
+    overflow: hidden;
+}
+
+.bar-fill {
+    height: 100%;
+    border-radius: 999px;
+
+    transition: width 0.4s ease;
+}
+
+.bar-fill {
+    height: 100%;
+    border-radius: 999px;
+
+    transition:
+        width 0.4s ease,
+        background-color 0.4s ease;
+}
+
+.bar-high {
+    background: #4caf50;
+}
+
+.bar-middle {
+    background: #ffc107;
+}
+
+.bar-low {
+    background: #f44336;
+}
+
+
     </style>
 </head>
 
 <body>
 
+<div style="
+    display:flex;
+    justify-content:center;
+    gap:10px;
+    margin-bottom:20px;
+">
 
+    {% if user.is_authenticated %}
+
+        <span>{{ user.username }} さん</span>
+
+        <form action="{% url 'logout' %}" method="post">
+            {% csrf_token %}
+            <button type="submit">
+                ログアウト
+            </button>
+        </form>
+
+    {% else %}
+
+        <a href="{% url 'login' %}" class="auth-link">
+            ログイン
+        </a>
+
+
+    {% endif %}
+
+</div>
+
+
+
+<div class="status-panel">
+
+    <div class="status-item">
+        <span>元気</span>
+
+        <div class="bar-bg">
+            <div class="bar-fill
+    {% if energy <= 30 %}
+        bar-low
+    {% elif energy <= 60 %}
+        bar-middle
+    {% else %}
+        bar-high
+    {% endif %}"
+    style="width: {{ energy }}%;">
+</div>
+        </div>
+    </div>
+
+    <div class="status-item">
+        <span>満腹度</span>
+
+        <div class="bar-bg">
+            <div class="bar-fill
+    {% if fullness <= 30 %}
+        bar-low
+    {% elif fullness <= 60 %}
+        bar-middle
+    {% else %}
+        bar-high
+    {% endif %}"
+    style="width: {{ fullness }}%;">
+</div>
+        </div>
+    </div>
+
+    <div class="status-item">
+        <span>満足度</span>
+
+        <div class="bar-bg">
+            <div class="bar-fill
+    {% if satisfaction <= 30 %}
+        bar-low
+    {% elif satisfaction <= 60 %}
+        bar-middle
+    {% else %}
+        bar-high
+    {% endif %}"
+    style="width: {{ satisfaction }}%;">
+</div>
+        </div>
+    </div>
+
+</div>
 
     <!-- 背景＋パラメータ -->
    <div style="
@@ -259,15 +439,15 @@
 
         <!-- 背景＋キャラクター -->
         <div style="
-            width: 600px;
-            height: 400px;
-            background-image:url('{% static room_wallpaper %}');
-            background-size: cover;
-            background-position: center;
-            position: relative;
-            border: 2px solid #ccc;
-            border-radius: 10px;
-        ">
+    width: 600px;
+    height: 400px;
+    background-image:url('{% static background_image %}');
+    background-size: cover;
+    background-position: center;
+    position: relative;
+    border: 2px solid #ccc;
+    border-radius: 10px;
+">
 
 
 {% for item in placed_item_images %}
@@ -486,10 +666,7 @@ pointer-events: none;
         </button>
 
         <div class="action-info">
-            <p>1時間</p>
-            <p>満足度<span class="up">↑</span></p>
-            <p>元気<span class="up">↑</span></p>
-            <p>満腹度<span class="up">↑↑</span></p>
+            <p>2時間</p>
         </div>
 
     </div>
@@ -505,11 +682,8 @@ pointer-events: none;
         </button>
 
         <div class="action-info">
-            <p>1時間</p>
-            <p>満足度<span class="up">↑↑↑</span></p>
-            <p>元気<span class="down">↓</span></p>
-            <p>満腹度<span class="up">↑</span></p>
-        </div>
+            <p>2時間</p>
+            </div>
 
     </div>
 
@@ -524,12 +698,8 @@ pointer-events: none;
         </button>
 
         <div class="action-info">
-            <p>2時間</p>
-            <p>満足度<span class="up">↑</span></p>
-            <p>元気<span class="up">↑↑</span></p>
-            <p>満腹度<span class="up">↑↑↑</span></p>
-            <p>成長度<span class="up">↑</span></p>
-        </div>
+            <p>4時間</p>
+            </div>
 
     </div>
 
@@ -558,11 +728,8 @@ pointer-events: none;
         </button>
 
         <div class="action-info">
-            <p>2時間</p>
-            <p>満足度<span class="up">↑↑↑</span></p>
-            <p>元気<span class="down">↓↓</span></p>
-            <p>満腹度<span class="down">↓↓</span></p>
-        </div>
+            <p>4時間</p>
+            </div>
 
     </div>
 
@@ -577,12 +744,8 @@ pointer-events: none;
         </button>
 
         <div class="action-info">
-            <p>1時間</p>
-            <p>満足度<span class="up">↑</span></p>
-            <p>元気<span class="down">↓</span></p>
-            <p>満腹度<span class="down">↓</span></p>
-            <p>成長度<span class="up">↑</span></p>
-        </div>
+            <p>2時間</p>
+            </div>
 
     </div>
 
@@ -597,12 +760,8 @@ pointer-events: none;
         </button>
 
         <div class="action-info">
-            <p>3時間</p>
-            <p>満足度<span class="up">↑</span></p>
-            <p>元気<span class="up">↑↑</span></p>
-            <p>満腹度<span class="down">↓↓</span></p>
-            <p>成長度<span class="up">↑</span></p>
-        </div>
+            <p>6時間</p>
+            </div>
 
     </div>
 
@@ -739,8 +898,9 @@ pointer-events: none;
 {% endif %}
 
 
-    <!-- リセット -->
-    <form method="GET"
+
+<!-- リセット -->
+<form method="GET"
       onsubmit="return confirm('本当にゲームをリセットしますか？');">
 
     <button type="submit"

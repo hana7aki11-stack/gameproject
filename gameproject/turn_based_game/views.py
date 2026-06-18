@@ -1,9 +1,11 @@
 from django.shortcuts import render, redirect
 import random
-from datetime import datetime
+from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
-from django.shortcuts import redirect
 from urllib.parse import urlencode
+from .models import SaveData
+from django.contrib.auth import login
+from .forms import SignUpForm
 
 item_categories = {
     'plant': 'plant',
@@ -25,6 +27,43 @@ item_categories = {
 
 
 def home(request):
+
+    if (
+        request.user.is_authenticated
+        and not request.session.get('auto_loaded', False)
+    ):
+
+        try:
+            save_data = SaveData.objects.get(
+                user=request.user
+            )
+
+            request.session['satisfaction'] = save_data.satisfaction
+            request.session['energy'] = save_data.energy
+            request.session['growth'] = save_data.growth
+            request.session['fullness'] = save_data.fullness
+
+            request.session['turn'] = save_data.turn
+            request.session['remaining_time'] = save_data.remaining_time
+
+            request.session['play_count'] = save_data.play_count
+            request.session['healthy_food_count'] = save_data.healthy_food_count
+            request.session['snack_count'] = save_data.snack_count
+
+            request.session['character_state'] = save_data.character_state
+
+            request.session['room_wallpaper'] = save_data.room_wallpaper
+
+            request.session['items'] = save_data.items
+            request.session['placed_items'] = save_data.placed_items
+
+        except SaveData.DoesNotExist:
+            pass
+
+        request.session['auto_loaded'] = True
+
+
+
     # 初回だけ初期値を作る
 
     if 'satisfaction' not in request.session:
@@ -59,7 +98,7 @@ def home(request):
 
     # 初期壁紙
     if 'room_wallpaper' not in request.session:
-        request.session['room_wallpaper'] = 'images/room-default.png'
+        request.session['room_wallpaper'] = 'room-default'
 
     if 'items' not in request.session:
         request.session['items'] = []
@@ -268,7 +307,14 @@ def home(request):
 
     # リセット
     if action == "reset":
+
+        if request.user.is_authenticated:
+            SaveData.objects.filter(
+                user=request.user
+            ).delete()
+
         request.session.flush()
+
         return redirect('/')
 
     event_message = ""
@@ -427,9 +473,7 @@ def home(request):
 
         # 壁紙の場合
         if item.startswith("room-"):
-            request.session["room_wallpaper"] = (
-                f"images/{item}.png"
-            )
+            request.session["room_wallpaper"] = item
 
             return redirect("/?menu=items")
 
@@ -679,6 +723,8 @@ def home(request):
     request.session['play_count'] = play_count
     request.session['healthy_food_count'] = healthy_food_count
     request.session['snack_count'] = snack_count
+    if 'room_wallpaper' not in request.session:
+        request.session['room_wallpaper'] = 'room-default'
 
     print("energy", energy)
     print("fullness", fullness)
@@ -793,26 +839,105 @@ def home(request):
     else:
         character_animation = "floatCharacter 2s ease-in-out infinite"
 
+    # -------------------------
+    # ゲーム内時間を計算
+    # -------------------------
 
-    # 日本時間を取得
-    japan_time = datetime.now(ZoneInfo("Asia/Tokyo"))
-    hour = japan_time.hour
+    current_hour = 12 - remaining_time
 
-    # 背景画像
-    if 6 <= hour < 12:
-        background_image = 'images/morning.png'
+    # 時間帯を決定
+    if current_hour < 9:
+        time_zone = "morning"
 
-    elif 12 <= hour < 18:
-        background_image = 'images/noon.png'
+    elif current_hour < 11:
+        time_zone = "noon"
 
     else:
-        background_image = 'images/night.png'
+        time_zone = "night"
+
+
+    # 実際の背景画像を作成
+    room_wallpaper = request.session.get(
+        'room_wallpaper',
+        'room-default'
+    )
+
+    current_hour = 12 - remaining_time
+
+    if current_hour < 9:
+        time_zone = "morning"
+
+    elif current_hour < 11:
+        time_zone = "noon"
+
+    else:
+        time_zone = "night"
+
+    background_image = (
+        f'images/{room_wallpaper}-{time_zone}.png'
+    )
+
+
 
     print("item_get =", item_get)
     print("character_state =", character_state)
     print("items =", request.session.get('items', []))
     print("placed_items =", request.session.get('placed_items', []))
     print(request.session.get('room_wallpaper'))
+    print(request.session['room_wallpaper'])
+    print(background_image)
+
+
+    start_date = datetime(2026, 4, 1)
+
+    current_date = datetime(2026, 4, 1) + timedelta(days=turn - 1)
+
+    date_text = f"{current_date.month}月{current_date.day}日"
+
+    time_table = {
+        6: "午前8:00",
+        5: "午前10:00",
+        4: "正午12:00",
+        3: "午後2:00",
+        2: "午後4:00",
+        1: "午後6:00",
+        0: "午後8:00",
+    }
+
+    time_text = time_table.get(
+        remaining_time,
+        "午後8:00"
+    )
+
+    # -------------------------
+    # 自動セーブ
+    # -------------------------
+
+    if request.user.is_authenticated:
+        save_data, created = SaveData.objects.get_or_create(
+            user=request.user
+        )
+
+        save_data.satisfaction = satisfaction
+        save_data.energy = energy
+        save_data.growth = growth
+        save_data.fullness = fullness
+
+        save_data.turn = turn
+        save_data.remaining_time = remaining_time
+
+        save_data.play_count = play_count
+        save_data.healthy_food_count = healthy_food_count
+        save_data.snack_count = snack_count
+
+        save_data.character_state = character_state
+        save_data.room_wallpaper = room_wallpaper
+
+        save_data.items = items
+        save_data.placed_items = placed_items
+
+        save_data.save()
+
 
 
     status = {
@@ -823,7 +948,6 @@ def home(request):
         'turn': turn,
         'event_message': event_message,
         'character_image': character_image,
-        'background_image': background_image,
         'game_status': game_status,
         'game_end': game_end,
         'last_action': last_action,
@@ -835,6 +959,8 @@ def home(request):
         'remaining_time': remaining_time,
         'personality_name': personality_name,
         'personality_comment': personality_comment,
+        'date_text': date_text,
+        'time_text': time_text,
 
         'item_get': item_get,
         'get_item_image': get_item_image,
@@ -849,10 +975,9 @@ def home(request):
         'placed_items': placed_items,
         'placed_item_images': placed_item_images,
 
-        'room_wallpaper': request.session.get(
-            'room_wallpaper',
-            'images/room-default.png'
-        ),
+        'room_wallpaper': background_image,
+        'background_image': background_image,
+
     }
 
     return render(
@@ -860,6 +985,8 @@ def home(request):
         'turn_based_game/home.html',
         status
     )
+
+
 
 def debug_view(request):
     status = {
@@ -876,4 +1003,28 @@ def debug_view(request):
         request,
         'turn_based_game/debug.html',
         status
+    )
+
+
+def signup(request):
+
+    if request.method == 'POST':
+
+        form = SignUpForm(request.POST)
+
+        if form.is_valid():
+
+            user = form.save()
+
+            login(request, user)
+
+            return redirect('/')
+
+    else:
+        form = SignUpForm()
+
+    return render(
+        request,
+        'registration/signup.html',
+        {'form': form}
     )

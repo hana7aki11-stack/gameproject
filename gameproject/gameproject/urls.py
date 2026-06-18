@@ -17,13 +17,9 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path
 
-urlpatterns = [
-    path('admin/', admin.site.urls),
-]
 
 from django.contrib import admin
 from django.urls import path, include
-from game1 import views
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -31,6 +27,9 @@ urlpatterns = [
     # ストーリーゲーム
     path('story/', include('storygame.urls')),
 
-    #ターン制育成ゲーム
+    # ターン制育成ゲーム
     path('', include('turn_based_game.urls')),
+
+    # ログイン・ログアウト
+    path('accounts/', include('django.contrib.auth.urls')),
 ]
