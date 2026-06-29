@@ -5,31 +5,6 @@
 
 <head>
     <meta charset="UTF-8">
-    <h1>ターン制育成ゲーム</h1>
-
-    <div style="
-    display:inline-block;
-    padding:12px 24px;
-    background:#ffffffcc;
-    border-radius:12px;
-    margin-bottom:20px;
-">
-
-    <div style="
-        font-size:24px;
-        font-weight:bold;
-    ">
-        {{ date_text }}
-    </div>
-
-    <div style="
-        font-size:18px;
-        color:#666;
-    ">
-        {{ time_text }}
-    </div>
-
-</div>
 
     <style>
 
@@ -38,6 +13,25 @@
             text-align: center;
         }
 
+.event-message {
+    position: relative;
+    margin-bottom: 8px;
+    padding: 8px 14px;
+    background: rgba(0,0,0,0.75);
+    color: white;
+    border-radius: 12px;
+    font-size: 16px;
+    white-space: nowrap;
+
+    animation: popMessage 2.5s ease-out forwards;
+}
+
+@keyframes popMessage {
+  0%   { opacity: 0; transform: translateY(-10px); }
+  15%  { opacity: 1; transform: translateY(0px); }
+  80%  { opacity: 1; }
+  100% { opacity: 0; transform: translateY(-10px); }
+}
 
         .action-card {
     display: inline-block;
@@ -122,109 +116,45 @@
         }
 
         @keyframes floatCharacter {
-            0% {
-                transform: translateX(-50%) translateY(0px);
-            }
+  0%   { transform: translateY(0px); }
+  50%  { transform: translateY(-10px); }
+  100% { transform: translateY(0px); }
+}
 
-            50% {
-                transform: translateX(-50%) translateY(-10px);
-            }
-
-            100% {
-                transform: translateX(-50%) translateY(0px);
-            }
-        }
-
-        @keyframes happyBounce {
-
-    0% {
-        transform: translateX(-50%) translateY(0px);
-    }
-
-    50% {
-        transform: translateX(-50%) translateY(-20px);
-    }
-
-    100% {
-        transform: translateX(-50%) translateY(0px);
-    }
+@keyframes happyBounce {
+  0%   { transform: translateY(0px); }
+  50%  { transform: translateY(-20px); }
+  100% { transform: translateY(0px); }
 }
 
 @keyframes tiredMove {
-
-    0% {
-        transform: translateX(-50%) translateY(0px);
-    }
-
-    50% {
-        transform: translateX(-50%) translateY(-2px);
-    }
-
-    100% {
-        transform: translateX(-50%) translateY(0px);
-    }
+  0%   { transform: translateY(0px); }
+  50%  { transform: translateY(-2px); }
+  100% { transform: translateY(0px); }
 }
 
 @keyframes hungryShake {
-
-    0% {
-        transform: translateX(-50%) translateX(-2px);
-    }
-
-    25% {
-        transform: translateX(-50%) translateX(2px);
-    }
-
-    50% {
-        transform: translateX(-50%) translateX(-2px);
-    }
-
-    75% {
-        transform: translateX(-50%) translateX(2px);
-    }
-
-    100% {
-        transform: translateX(-50%) translateX(-2px);
-    }
+  0%   { transform: translateX(-2px); }
+  25%  { transform: translateX(2px); }
+  50%  { transform: translateX(-2px); }
+  75%  { transform: translateX(2px); }
+  100% { transform: translateX(-2px); }
 }
 
 @keyframes fullMove {
-
-    0% {
-        transform: translateX(-50%) translateY(0px);
-    }
-
-    50% {
-        transform: translateX(-50%) translateY(-4px);
-    }
-
-    100% {
-        transform: translateX(-50%) translateY(0px);
-    }
+  0%   { transform: translateY(0px); }
+  50%  { transform: translateY(-4px); }
+  100% { transform: translateY(0px); }
 }
 
 @keyframes eatCharacter {
-
-    0% {
-        transform: translateX(-50%) scaleY(1);
-    }
-
-    25% {
-        transform: translateX(-50%) scaleY(0.85);
-    }
-
-    50% {
-        transform: translateX(-50%) scaleY(1);
-    }
-
-    75% {
-        transform: translateX(-50%) scaleY(0.85);
-    }
-
-    100% {
-        transform: translateX(-50%) scaleY(1);
-    }
+  0%   { transform: scaleY(1); }
+  25%  { transform: scaleY(0.85); }
+  50%  { transform: scaleY(1); }
+  75%  { transform: scaleY(0.85); }
+  100% { transform: scaleY(1); }
 }
+
 
         @keyframes foodAppear {
 
@@ -343,7 +273,44 @@
 </head>
 
 <body>
+<h1>ターン制育成ゲーム</h1>
 
+    <div style="
+    display:inline-block;
+    padding:12px 24px;
+    background:#ffffffcc;
+    border-radius:12px;
+    margin-bottom:20px;
+">
+
+    <div style="
+        font-size:24px;
+        font-weight:bold;
+    ">
+        {{ date_text }}
+    </div>
+
+    <div style="
+        font-size:18px;
+        color:#666;
+    ">
+        {{ time_text }}
+    </div>
+
+    <div style="
+    background:#ffffffcc;
+    padding:10px;
+    border-radius:10px;
+    margin-bottom:15px;
+">
+
+    就寝まであと
+    <strong>{{ sleep_hours }}</strong>
+    時間
+
+</div>
+
+</div>
 <div style="
     display:flex;
     justify-content:center;
@@ -434,19 +401,18 @@
    <div style="
     display: flex;
     justify-content: center;
+    align-items: center;
     margin-bottom: 30px;
 ">
 
-        <!-- 背景＋キャラクター -->
-        <div style="
+       <!-- 背景＋キャラクター -->
+<div style="
+    position: relative;
     width: 600px;
     height: 400px;
     background-image:url('{% static background_image %}');
     background-size: cover;
     background-position: center;
-    position: relative;
-    border: 2px solid #ccc;
-    border-radius: 10px;
 ">
 
 
@@ -489,19 +455,31 @@
 
 {% endif %}
 
-<!-- キャラクター -->
-<img
+<!-- キャラ＆メッセージ -->
+<div style="
+  position: absolute;
+  left: 50%;
+  bottom: 80px;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+">
+
+  {% if event_message %}
+  <div class="event-message">
+    {{ event_message }}
+  </div>
+  {% endif %}
+
+  <img
     src="{% static character_image %}"
     width="220"
-    style="
-        position:absolute;
-        left:50%;
-        bottom:80px;
-        transform:translateX(-50%);
-        z-index:10;
-        animation: {{ character_animation }};
-    "
->
+    style="display:block; animation: {{ character_animation }};"
+  >
+
+</div>
+
 
          <!-- キャラクター -->
 
@@ -722,22 +700,6 @@ pointer-events: none;
         <button class="sub-action-button"
                 type="submit"
                 name="action"
-                value="ball"
-                {% if remaining_time < 2 or game_end %}disabled{% endif %}>
-            ボール
-        </button>
-
-        <div class="action-info">
-            <p>4時間</p>
-            </div>
-
-    </div>
-
-    <div class="action-card">
-
-        <button class="sub-action-button"
-                type="submit"
-                name="action"
                 value="toy"
                 {% if remaining_time < 1 or game_end %}disabled{% endif %}>
             おもちゃ
@@ -745,7 +707,7 @@ pointer-events: none;
 
         <div class="action-info">
             <p>2時間</p>
-            </div>
+        </div>
 
     </div>
 
@@ -756,14 +718,74 @@ pointer-events: none;
                 name="action"
                 value="bike"
                 {% if remaining_time < 3 or game_end %}disabled{% endif %}>
-            自転車
+            サイクリング
         </button>
 
         <div class="action-info">
             <p>6時間</p>
-            </div>
+        </div>
 
     </div>
+
+    <div class="action-card">
+
+        <button class="sub-action-button"
+                type="submit"
+                name="menu"
+                value="ball_difficulty"
+                {% if remaining_time < 2 or game_end %}disabled{% endif %}>
+            ボールキャッチ
+        </button>
+
+        <div class="action-info">
+            <p>4時間</p>
+        </div>
+
+    </div>
+
+</form>
+
+{% endif %}
+
+
+<!-- ボールキャッチ：難易度選択メニュー -->
+{% if menu == 'ball_difficulty' %}
+
+<form method="GET">
+
+    <input type="hidden"
+           name="action"
+           value="ball">
+
+    {% for level in difficulty_list %}
+
+    <div class="action-card">
+
+        {% if level.unlocked %}
+
+            <button class="sub-action-button"
+                    type="submit"
+                    name="difficulty"
+                    value="{{ level.key }}"
+                    {% if remaining_time < 2 or game_end %}disabled{% endif %}>
+                {{ level.label }}
+            </button>
+
+        {% else %}
+
+            <button class="sub-action-button" type="button" disabled>
+                {{ level.label }}
+            </button>
+
+        {% endif %}
+
+        <div class="action-info">
+            <p>2時間</p>
+        </div>
+
+    </div>
+
+    {% endfor %}
 
 </form>
 

@@ -6,6 +6,7 @@ from urllib.parse import urlencode
 from .models import SaveData
 from django.contrib.auth import login
 from .forms import SignUpForm
+from django.urls import reverse
 
 item_categories = {
     'plant': 'plant',
@@ -25,8 +26,27 @@ item_categories = {
     'clock-kawaii': 'clock',
 }
 
+def get_difficulty_list(growth_stage):
+    DIFFICULTY_LEVELS = [
+        {'key': 'easy',   'label': 'かんたん',   'required_stage': 0},
+        {'key': 'normal', 'label': 'ふつう',     'required_stage': 1},
+        {'key': 'hard',   'label': 'むずかしい', 'required_stage': 2},
+        {'key': 'oni',    'label': 'おに',       'required_stage': 3},
+    ]
+
+    return [
+        {
+            'key': level['key'],
+            'label': level['label'],
+            'unlocked': growth_stage >= level['required_stage'],
+        }
+        for level in DIFFICULTY_LEVELS
+    ]
 
 def home(request):
+
+    event_message = ""
+    reaction_state = "normal"
 
     if (
         request.user.is_authenticated
@@ -96,6 +116,9 @@ def home(request):
     if 'snack_count' not in request.session:
         request.session['snack_count'] = 0
 
+    if 'remaining_time' not in request.session:
+        request.session['remaining_time'] = 6
+
     # 初期壁紙
     if 'room_wallpaper' not in request.session:
         request.session['room_wallpaper'] = 'room-default'
@@ -120,6 +143,7 @@ def home(request):
     turn = request.session['turn']
     remaining_time = request.session['remaining_time']
 
+
     character_state = request.session['character_state']
 
     items = request.session['items']
@@ -127,8 +151,24 @@ def home(request):
 
     room_wallpaper = request.session['room_wallpaper']
 
+
+
+    # 成長段階ごとの最大時間
+    if growth < 20:
+        max_time = 6  # 12時間
+
+    elif growth < 40:
+        max_time = 7  # 14時間
+
+    elif growth < 80:
+        max_time = 8  # 16時間
+
+    else:
+        max_time = 9  # 18時間
+
     # ボタン判定
     action = request.GET.get('action')
+
 
     # ゲーム終了判定
     game_end = energy <= 0 or growth >= 100
@@ -305,6 +345,223 @@ def home(request):
     # ボタン判定
     action = request.GET.get('action')
 
+    # -------------------------
+    # ボールキャッチ終了
+    # -------------------------
+
+    if action == "ball_game":
+
+        score = int(request.GET.get("score", 0))
+        difficulty = request.GET.get("difficulty", "easy")
+
+        multiplier_map = {
+            'easy': 1,
+            'normal': 1.5,
+            'hard': 2,
+            'oni': 3,
+        }
+        multiplier = multiplier_map.get(difficulty, 1)
+
+        adjusted_score = score * multiplier
+
+        play_count += 1
+        remaining_time -= 2
+
+        if adjusted_score < 10:
+            satisfaction += 10
+            growth += 1
+            event_message = "少し遊べた！"
+
+        elif adjusted_score < 15:
+            satisfaction += 20
+            growth += 2
+            event_message = "たくさん遊べて楽しそう！"
+
+        else:
+            satisfaction += 30
+            growth += 3
+            event_message = "大満足だったみたい！"
+
+        request.session["event_message"] = event_message
+
+
+
+    # ゲーム終了判定
+    game_end = energy <= 0 or growth >= 100
+
+    # 行動ごとの消費時間
+    action_cost = {
+        'salad': 1,
+        'snack': 1,
+        'meal': 2,
+        'ball': 2,
+        'toy': 1,
+        'bike': 3,
+        'rest': 2,
+    }
+
+    # 行動可能か判定
+    can_act = (
+            action in action_cost
+            and remaining_time >= action_cost[action]
+            and not game_end
+    )
+
+    # 図鑑用の全アイテム一覧
+    all_items = [
+        'plant',
+        'sofa',
+        'rug',
+        'clock',
+
+        'room-kawaii',
+        'room-star',
+        'room-sky',
+
+        'sofa-star',
+        'plant-star',
+        'rug-star',
+        'clock-star',
+
+        'sofa-kawaii',
+        'plant-kawaii',
+        'rug-kawaii',
+        'clock-kawaii',
+    ]
+
+    owned_count = len(items)
+    total_count = len(all_items)
+
+    collection_rate = int(
+        owned_count / total_count * 100
+    )
+
+    item_get = False
+    get_item_image = ""
+
+    furniture_positions = {
+
+        # ソファ系
+        'sofa': {
+            'bottom': '20px',
+            'left': '30px',
+            'width': '240'
+        },
+
+        'sofa-star': {
+            'bottom': '40px',
+            'left': '30px',
+            'width': '240'
+        },
+
+        'sofa-kawaii': {
+            'bottom': '50px',
+            'left': '30px',
+            'width': '240'
+        },
+
+        # 植物系
+        'plant': {
+            'bottom': '20px',
+            'right': '-40px',
+            'width': '280'
+        },
+
+        'plant-star': {
+            'bottom': '20px',
+            'right': '-100px',
+            'width': '400'
+        },
+
+        'plant-kawaii': {
+            'bottom': '20px',
+            'right': '-40px',
+            'width': '280'
+        },
+
+        # ラグ系
+        'rug': {
+            'bottom': '0px',
+            'left': '50%',
+            'transform': 'translateX(-50%)',
+            'width': '160'
+        },
+
+        'rug-star': {
+            'bottom': '-10px',
+            'left': '50%',
+            'transform': 'translateX(-50%)',
+            'width': '250'
+        },
+
+        'rug-kawaii': {
+            'bottom': '-5px',
+            'left': '50%',
+            'transform': 'translateX(-50%)',
+            'width': '160'
+        },
+
+        # 時計系
+        'clock': {
+            'top': '20px',
+            'right': '170px',
+            'width': '100'
+        },
+
+        'clock-star': {
+            'top': '20px',
+            'right': '170px',
+            'width': '100'
+        },
+
+        'clock-kawaii': {
+            'top': '20px',
+            'right': '170px',
+            'width': '100'
+        },
+    }
+
+    placed_item_images = []
+
+    for item in placed_items:
+
+        # 壁紙は家具一覧に追加しない
+        if item.startswith('room-'):
+            continue
+
+        position = furniture_positions.get(item, {})
+
+        placed_item_images.append({
+            'name': item,
+            'image': f'images/{item}.png',
+
+            'top': position.get('top', 'auto'),
+            'bottom': position.get('bottom', 'auto'),
+            'left': position.get('left', 'auto'),
+            'right': position.get('right', 'auto'),
+
+            'transform': position.get(
+                'transform',
+                'none'
+            ),
+
+            'width': position.get(
+                'width',
+                '120'
+            ),
+        })
+
+    item_get = False
+    get_item_image = ""
+
+    before_energy = energy
+    before_fullness = fullness
+    before_satisfaction = satisfaction
+
+    # ボタン判定
+    action = request.GET.get('action')
+
+
     # リセット
     if action == "reset":
 
@@ -313,12 +570,28 @@ def home(request):
                 user=request.user
             ).delete()
 
-        request.session.flush()
+        request.session['satisfaction'] = 50
+        request.session['energy'] = 50
+        request.session['growth'] = 0
+        request.session['fullness'] = 50
+
+        request.session['turn'] = 1
+        request.session['remaining_time'] = 6
+
+        request.session['play_count'] = 0
+        request.session['healthy_food_count'] = 0
+        request.session['snack_count'] = 0
+
+        request.session['character_state'] = 'normal'
+        request.session['room_wallpaper'] = 'room-default'
+
+        request.session['items'] = []
+        request.session['placed_items'] = []
+
+        request.session['auto_loaded'] = False
 
         return redirect('/')
 
-    event_message = ""
-    reaction_state = "normal"
     menu = request.GET.get('menu', '')
 
     # 行動後はメニューを閉じる
@@ -328,6 +601,20 @@ def home(request):
         'rest', 'next_day'
     ]:
         menu = ''
+
+    # 難易度判定用の成長段階
+    if growth < 20:
+        current_growth_stage = 0
+    elif growth < 40:
+        current_growth_stage = 1
+    elif growth < 80:
+        current_growth_stage = 2
+    elif growth < 100:
+        current_growth_stage = 3
+    else:
+        current_growth_stage = 4
+
+    difficulty_list = get_difficulty_list(current_growth_stage)
 
     # 最後の行動
     last_action = action
@@ -382,18 +669,36 @@ def home(request):
     # あそぶ系
     # -------------------------
 
-    elif action == 'ball' and can_act:
+    elif action == "ball" and can_act:
 
-        play_count += 1
+        difficulty = request.GET.get("difficulty", "easy")
 
-        satisfaction += 25
-        energy -= 20
-        fullness -= 15
-        growth += 0
+        # 未解放の難易度が指定された場合はeasyにフォールバック
+
+        unlocked_keys = [
+
+            d['key'] for d in difficulty_list if d['unlocked']
+
+        ]
+
+        if difficulty not in unlocked_keys:
+            difficulty = "easy"
 
         remaining_time -= 2
 
-        reaction_state = "happy_play"
+        energy -= 20
+
+        fullness -= 15
+
+        request.session["remaining_time"] = remaining_time
+
+        request.session["energy"] = energy
+
+        request.session["fullness"] = fullness
+
+        query = urlencode({"difficulty": difficulty})
+
+        return redirect(f"{reverse('ball_game')}?{query}")
 
 
 
@@ -457,10 +762,22 @@ def home(request):
     elif action == 'next_day' and not game_end:
 
         turn += 1
-        remaining_time = 6
+
+        # 成長段階で行動時間増加
+        if growth < 20:
+            remaining_time = 6
+
+        elif growth < 40:
+            remaining_time = 7
+
+        elif growth < 80:
+            remaining_time = 8
+
+        else:
+            remaining_time = 9
 
         fullness -= 20
-        energy -= 10
+        energy += 15
         satisfaction -= 5
 
         reaction_state = "normal"
@@ -523,32 +840,28 @@ def home(request):
         return redirect('/?menu=items')
 
 
-    # イベントメッセージ
-    event_message = ""
 
     # 3ターンごとのランダムイベント
-    if turn % 3 == 0:
+    if action == 'next_day' and turn % 3 == 0:
 
         event = random.randint(1, 4)
 
         # 楽しいことがあった
         if event == 1:
             satisfaction += 20
-            event_message = "楽しいことがあった！満足度アップ！"
+
 
         # 疲れた
         elif event == 2:
             energy -= 15
-            event_message = "疲れてしまった…元気ダウン"
+
 
         # 成長
         elif event == 3:
             growth += 2
-            event_message = "大きく成長した！"
 
-        # 何もない
-        else:
-            event_message = "特になにもなかった"
+
+
 
 
 
@@ -582,21 +895,18 @@ def home(request):
         # 元気が低い
         if energy <= 30:
             growth -= 2
-            event_message += " 疲れているみたい…成長度ダウン"
             character_state = "tired"
 
         # 満足度が高い
         if satisfaction >= 80:
 
             growth += 1
-            event_message += " ごきげん！成長度アップ"
             character_state = "happy"
 
         # 満腹すぎる
         if fullness >= 70:
             satisfaction -= 5
             growth -= 2
-            event_message += " お腹いっぱいで遊びたくない…"
             character_state = "tired"
 
         # 満腹なのにごはん
@@ -606,14 +916,12 @@ def home(request):
         ):
             satisfaction -= 10
             energy -= 5
-            event_message += " お腹いっぱいなのに食べすぎた…"
             character_state = "tired"
 
         # 元気なのに休む
         if energy >= 90 and action == 'rest':
             satisfaction -= 15
             growth -= 2
-            event_message += " まだ元気なのに寝ちゃった…"
             character_state = "tired"
 
         # 疲れているのに遊ぶ
@@ -623,7 +931,6 @@ def home(request):
         ):
             energy -= 10
             satisfaction -= 5
-            event_message += " 疲れているのに遊んでしまった…"
             character_state = "tired"
 
         # 空腹なのに遊ぶ
@@ -632,19 +939,16 @@ def home(request):
                 and action in ['ball', 'toy', 'bike']
         ):
             satisfaction -= 10
-            event_message += " お腹が空いて遊べない…"
             character_state = "tired"
 
         # 絶好調
         if satisfaction >= 80 and energy >= 80:
             growth += 2
-            event_message += " 絶好調！すごく元気！"
             character_state = "happy"
 
         # 弱っている状態
         if energy <= 20 and fullness <= 20:
             growth -= 2
-            event_message += " 弱っているみたい…"
             character_state = "tired"
 
         # 最終的にHappyならアイテム獲得
@@ -688,7 +992,6 @@ def home(request):
                 item_get = True
                 get_item_image = f'images/{new_item}.png'
 
-                event_message += f" {new_item}を獲得！"
 
     # 最終値を制限
     satisfaction = max(0, min(100, satisfaction))
@@ -839,22 +1142,6 @@ def home(request):
     else:
         character_animation = "floatCharacter 2s ease-in-out infinite"
 
-    # -------------------------
-    # ゲーム内時間を計算
-    # -------------------------
-
-    current_hour = 12 - remaining_time
-
-    # 時間帯を決定
-    if current_hour < 9:
-        time_zone = "morning"
-
-    elif current_hour < 11:
-        time_zone = "noon"
-
-    else:
-        time_zone = "night"
-
 
     # 実際の背景画像を作成
     room_wallpaper = request.session.get(
@@ -862,12 +1149,12 @@ def home(request):
         'room-default'
     )
 
-    current_hour = 12 - remaining_time
+    current_hour = 8 + (max_time - remaining_time) * 2
 
-    if current_hour < 9:
+    if current_hour < 12:
         time_zone = "morning"
 
-    elif current_hour < 11:
+    elif current_hour < 18:
         time_zone = "noon"
 
     else:
@@ -894,20 +1181,26 @@ def home(request):
 
     date_text = f"{current_date.month}月{current_date.day}日"
 
-    time_table = {
-        6: "午前8:00",
-        5: "午前10:00",
-        4: "正午12:00",
-        3: "午後2:00",
-        2: "午後4:00",
-        1: "午後6:00",
-        0: "午後8:00",
-    }
 
-    time_text = time_table.get(
-        remaining_time,
-        "午後8:00"
-    )
+    # 現在時刻を計算
+    current_hour = 8 + (max_time - remaining_time) * 2
+
+    if current_hour == 12:
+        time_text = "正午12:00"
+
+    elif current_hour < 12:
+        time_text = f"午前{current_hour}:00"
+
+    elif current_hour == 24:
+        time_text = "午前0:00"
+
+    elif current_hour > 24:
+        time_text = f"午前{current_hour - 24}:00"
+
+    else:
+        time_text = f"午後{current_hour - 12}:00"
+
+    sleep_hours = remaining_time * 2
 
     # -------------------------
     # 自動セーブ
@@ -961,6 +1254,7 @@ def home(request):
         'personality_comment': personality_comment,
         'date_text': date_text,
         'time_text': time_text,
+        'difficulty_list': difficulty_list,
 
         'item_get': item_get,
         'get_item_image': get_item_image,
@@ -977,6 +1271,9 @@ def home(request):
 
         'room_wallpaper': background_image,
         'background_image': background_image,
+
+        'sleep_hours': remaining_time * 2,
+
 
     }
 
@@ -1027,4 +1324,112 @@ def signup(request):
         request,
         'registration/signup.html',
         {'form': form}
+    )
+
+def ball_game(request):
+
+    # -------------------------
+    # 成長度を取得
+    # -------------------------
+
+    # セッションから現在の成長度を取得
+    growth = request.session["growth"]
+
+    # -------------------------
+    # 成長段階を判定
+    # -------------------------
+
+    # 成長度に応じて成長段階（0〜4）を決定
+    if growth < 20:
+        growth_stage = 0
+    elif growth < 40:
+        growth_stage = 1
+    elif growth < 80:
+        growth_stage = 2
+    elif growth < 100:
+        growth_stage = 3
+    else:
+        growth_stage = 4
+
+    # -------------------------
+    # 難易度の解放状況を取得
+    # -------------------------
+
+    # 成長段階に応じて、どの難易度が解放されているかを取得
+    difficulty_list = get_difficulty_list(growth_stage)
+
+    # -------------------------
+    # 選択された難易度を取得
+    # -------------------------
+
+    # URLのクエリパラメータから難易度を取得（未指定ならeasy）
+    selected_difficulty = request.GET.get('difficulty', 'easy')
+
+    # 現在解放されている難易度キーの一覧を作成
+    unlocked_keys = [d['key'] for d in difficulty_list if d['unlocked']]
+
+    # 未解放の難易度が指定されていた場合はeasyにフォールバック
+    if selected_difficulty not in unlocked_keys:
+        selected_difficulty = 'easy'
+
+    # -------------------------
+    # 難易度ごとのゲームパラメータを定義
+    # -------------------------
+
+    # ball_speed：ボールの再配置の速さ
+    # spawn_interval：自動でボールが動く間隔（ミリ秒）
+    # score_multiplier：スコアにかける倍率
+    DIFFICULTY_SETTINGS = {
+        'easy':   {'ball_speed': 1.0, 'spawn_interval': 1000, 'score_multiplier': 1},
+        'normal': {'ball_speed': 1.4, 'spawn_interval': 800,  'score_multiplier': 1.5},
+        'hard':   {'ball_speed': 1.8, 'spawn_interval': 600,  'score_multiplier': 2},
+        'oni':    {'ball_speed': 2.4, 'spawn_interval': 400,  'score_multiplier': 3},
+    }
+
+    # 選択された難易度に対応する設定値を取り出す
+    current_settings = DIFFICULTY_SETTINGS[selected_difficulty]
+
+    # -------------------------
+    # 使用する画像を設定
+    # -------------------------
+
+    # 成長段階に応じた通常画像
+    character_image = f"images/character{growth_stage}.png"
+
+    # 成長段階に応じたHappy画像
+    character_happy_image = f"images/character{growth_stage}-happy.png"
+
+    # 背景画像
+    background_image = "images/morning.png"
+
+    # ボール画像
+    ball_image = "images/ball.png"
+
+    # -------------------------
+    # テンプレートへ渡すデータ
+    # -------------------------
+
+    status = {
+        "growth_stage": growth_stage,
+        "character_image": character_image,
+        "character_happy_image": character_happy_image,
+        "background_image": background_image,
+        "game_title": "ボールキャッチ",
+        "ball_image": ball_image,
+
+        # 選択された難易度と、それに応じたゲームパラメータ
+        "selected_difficulty": selected_difficulty,
+        "ball_speed": current_settings['ball_speed'],
+        "spawn_interval": current_settings['spawn_interval'],
+        "score_multiplier": current_settings['score_multiplier'],
+    }
+
+    # -------------------------
+    # ボールキャッチ画面を表示
+    # -------------------------
+
+    return render(
+        request,
+        "turn_based_game/ball_game.html",
+        status
     )
