@@ -10,5 +10,6 @@ urlpatterns = [
     path('signup/', views.signup, name='signup'),
 
     path('ball_game/', views.ball_game, name='ball_game'),
+    path('food_game/', views.food_game, name='food_game')
 ]
 

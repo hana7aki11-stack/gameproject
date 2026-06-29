@@ -182,6 +182,7 @@ def home(request):
         'toy': 1,
         'bike': 3,
         'rest': 2,
+        'food_minigame': 1,
     }
 
     # 行動可能か判定
@@ -386,6 +387,42 @@ def home(request):
 
 
 
+    # -------------------------
+    # 好きなごはん選び 終了
+    # -------------------------
+
+    if action == "food_result":
+
+        score = int(request.GET.get("score", 0))
+
+        healthy_food_count += 1
+        remaining_time -= 0  # 時間は開始時に消費済みなのでここでは消費しない
+
+        # サラダの効果（satisfaction+10, energy+8, fullness+10）を基準にスケール
+        if score < 5:
+            satisfaction += 5
+            energy += 4
+            fullness += 5
+            event_message = "少し食べられた"
+
+        elif score < 15:
+            satisfaction += 10
+            energy += 8
+            fullness += 10
+            growth += 1
+            event_message = "好物をたくさん食べられた！"
+
+        else:
+            satisfaction += 15
+            energy += 12
+            fullness += 15
+            growth += 2
+            event_message = "大好物をたくさん食べて大満足！"
+
+        request.session["event_message"] = event_message
+
+
+
     # ゲーム終了判定
     game_end = energy <= 0 or growth >= 100
 
@@ -398,6 +435,7 @@ def home(request):
         'toy': 1,
         'bike': 3,
         'rest': 2,
+        'food_minigame': 1,
     }
 
     # 行動可能か判定
@@ -663,6 +701,24 @@ def home(request):
         remaining_time -= 2
 
         reaction_state = "normal_food"
+
+    # 好きなごはん選び
+    elif action == "food_minigame" and can_act:
+
+        difficulty = request.GET.get("difficulty", "easy")
+
+        unlocked_keys = [
+            d['key'] for d in difficulty_list if d['unlocked']
+        ]
+        if difficulty not in unlocked_keys:
+            difficulty = "easy"
+
+        remaining_time -= action_cost['food_minigame']
+
+        request.session["remaining_time"] = remaining_time
+
+        query = urlencode({"difficulty": difficulty})
+        return redirect(f"{reverse('food_game')}?{query}")
 
 
     # -------------------------
@@ -1431,5 +1487,95 @@ def ball_game(request):
     return render(
         request,
         "turn_based_game/ball_game.html",
+        status
+    )
+
+
+def food_game(request):
+
+    # -------------------------
+    # 成長度を取得
+    # -------------------------
+
+    growth = request.session["growth"]
+
+    if growth < 20:
+        growth_stage = 0
+    elif growth < 40:
+        growth_stage = 1
+    elif growth < 80:
+        growth_stage = 2
+    elif growth < 100:
+        growth_stage = 3
+    else:
+        growth_stage = 4
+
+    # -------------------------
+    # 難易度の解放状況を取得
+    # -------------------------
+
+    difficulty_list = get_difficulty_list(growth_stage)
+
+    selected_difficulty = request.GET.get('difficulty', 'easy')
+    unlocked_keys = [d['key'] for d in difficulty_list if d['unlocked']]
+
+    if selected_difficulty not in unlocked_keys:
+        selected_difficulty = 'easy'
+
+    # -------------------------
+    # 難易度ごとのゲームパラメータ
+    # -------------------------
+
+    # flow_speed：食べ物が落ちてくる速さ
+    # spawn_interval：食べ物が出現する間隔（ミリ秒）
+    # time_limit：制限時間（秒）
+    # score_multiplier：スコアにかける倍率
+    FOOD_DIFFICULTY_SETTINGS = {
+        'easy':   {'flow_speed': 1.0, 'spawn_interval': 1200, 'time_limit': 20, 'score_multiplier': 1},
+        'normal': {'flow_speed': 1.4, 'spawn_interval': 900,  'time_limit': 18, 'score_multiplier': 1.5},
+        'hard':   {'flow_speed': 1.8, 'spawn_interval': 650,  'time_limit': 15, 'score_multiplier': 2},
+        'oni':    {'flow_speed': 2.4, 'spawn_interval': 450,  'time_limit': 12, 'score_multiplier': 3},
+    }
+
+    current_settings = FOOD_DIFFICULTY_SETTINGS[selected_difficulty]
+
+    # -------------------------
+    # 使用する画像を設定
+    # -------------------------
+
+    character_image = f"images/character{growth_stage}.png"
+    character_happy_image = f"images/character{growth_stage}-happy.png"
+    background_image = "images/morning.png"
+
+    # 流れてくる食べ物画像（好物・苦手どちらにもなりうる候補）
+    # ※ images/food1.png 〜 food6.png を用意してください
+    food_item_images = [
+        "images/food1.png",
+        "images/food2.png",
+        "images/food3.png",
+        "images/food4.png",
+        "images/food5.png",
+        "images/food6.png",
+    ]
+
+    status = {
+        "growth_stage": growth_stage,
+        "character_image": character_image,
+        "character_happy_image": character_happy_image,
+        "background_image": background_image,
+        "game_title": "好きなごはん選び",
+
+        "selected_difficulty": selected_difficulty,
+        "flow_speed": current_settings['flow_speed'],
+        "spawn_interval": current_settings['spawn_interval'],
+        "time_limit": current_settings['time_limit'],
+        "score_multiplier": current_settings['score_multiplier'],
+
+        "food_item_images": food_item_images,
+    }
+
+    return render(
+        request,
+        "turn_based_game/food_game.html",
         status
     )

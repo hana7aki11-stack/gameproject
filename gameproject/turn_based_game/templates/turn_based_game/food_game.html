@@ -1,0 +1,246 @@
+{% extends 'turn_based_game/game_base.html' %}
+{% load static %}
+
+{% block page_title %}好きなごはん選び{% endblock %}
+{# ブラウザのタブに表示されるタイトル #}
+
+
+{% block extra_style %}
+{# 好きなごはん選び専用のCSS #}
+
+.food-item{
+    width:60px;          /* 食べ物画像のサイズ */
+    position:absolute;   /* 自由に位置を動かすため */
+    cursor:pointer;       /* クリック可能を示すマウスカーソル */
+    top:-60px;            /* 画面上の外側からスタートさせる */
+}
+
+.lives{
+    color:#e53935;        /* ライフ（❤）の文字色 */
+    letter-spacing:4px;   /* ❤同士の間隔を広げる */
+}
+{% endblock %}
+
+
+{% block status_extra %}
+{# スコア・タイマーの横にライフ表示を追加 #}
+<div>ライフ：<span class="lives" id="lives">❤❤❤</span></div>
+{% endblock %}
+
+
+{% block game_area %}
+<!-- 食べ物はJSで動的に追加される -->
+{# このブロックは空。食べ物はJavaScript側でgame-areaに直接追加していく #}
+{% endblock %}
+
+
+{% block config %}
+{# views.pyから渡した難易度・食材データをJS用に埋め込む（非表示） #}
+
+<div id="game-config"
+     data-difficulty="{{ selected_difficulty }}"
+     data-flow-speed="{{ flow_speed }}"
+     data-spawn-interval="{{ spawn_interval }}"
+     data-time-limit="{{ time_limit }}"
+     data-score-multiplier="{{ score_multiplier }}"
+     style="display:none;">
+</div>
+
+{# 食べ物画像のパス一覧をJSで読み取れる形で並べておく #}
+<div id="food-images" style="display:none;">
+    {% for img in food_item_images %}
+        <span class="food-src" data-src="{% static img %}"></span>
+    {% endfor %}
+</div>
+
+{% endblock %}
+
+
+{% block script %}
+
+// 難易度の設定値を取得
+const config = document.getElementById("game-config");
+
+const difficulty = config.dataset.difficulty;
+const flowSpeed = parseFloat(config.dataset.flowSpeed);
+const spawnInterval = parseInt(config.dataset.spawnInterval);
+const scoreMultiplier = parseFloat(config.dataset.scoreMultiplier);
+
+// 制限時間（秒）
+let timeLeft = parseInt(config.dataset.timeLimit);
+
+// 食べ物画像のパス一覧を配列として取得
+const foodSrcElements = document.querySelectorAll(".food-src");
+const foodImages = Array.from(foodSrcElements).map(el => el.dataset.src);
+
+// キャラクター画像の要素とパス
+const character = document.getElementById("character");
+const normalImage = "{% static character_image %}";
+const happyImage = "{% static character_happy_image %}";
+
+// ゲームエリアと表示要素を取得
+const area = document.getElementById("game-area");
+const scoreDisplay = document.getElementById("score");
+const timeDisplay = document.getElementById("time");
+const livesDisplay = document.getElementById("lives");
+
+// スコア・ライフの初期化
+let score = 0;
+let lives = 3;
+
+timeDisplay.textContent = timeLeft;
+
+// 食べ物を1つ生成して落としてくる関数
+function spawnFood() {
+
+    // 画像要素を新しく作る
+    const img = document.createElement("img");
+    img.className = "food-item";
+
+    // 好物かどうかをランダムに決める（毎回変わる）
+    const isFavorite = Math.random() < 0.5;
+
+    // 画像もランダムに選ぶ
+    const src = foodImages[Math.floor(Math.random() * foodImages.length)];
+    img.src = src;
+
+    // 好物かどうかを画像自身に記録しておく
+    img.dataset.favorite = isFavorite ? "true" : "false";
+
+    // 好物には光る枠をつけて見分けやすくする
+    if (isFavorite) {
+        img.style.filter = "drop-shadow(0 0 6px gold)";
+    }
+
+    // 横方向の出現位置をランダムに決める
+    const maxX = area.clientWidth - 60;
+    const startX = Math.random() * maxX;
+    img.style.left = startX + "px";
+    img.style.top = "-60px";
+
+    // ゲームエリアに追加
+    area.appendChild(img);
+
+    // 落ちる速さ（flowSpeedが大きいほど短時間で落ちきる）
+    const fallDuration = 3000 / flowSpeed;
+    const startTime = performance.now();
+
+    // 食べ物を少しずつ下に落とすアニメーション処理
+    function fall() {
+
+        const elapsed = performance.now() - startTime;
+        const progress = elapsed / fallDuration;
+
+        // 画面外まで落ちきった場合
+        if (progress >= 1) {
+
+            // 好物を見逃した場合はミス扱い
+            if (img.dataset.favorite === "true") {
+                missAction();
+            }
+            // 苦手を見逃した場合は何もしない（クリックしなくて正解）
+
+            img.remove();
+            return;
+        }
+
+        // 現在の進行度に応じて位置を更新
+        img.style.top = (progress * (area.clientHeight + 60) - 60) + "px";
+
+        // 次のフレームでも続ける
+        requestAnimationFrame(fall);
+    }
+
+    requestAnimationFrame(fall);
+
+    // クリックされた時の処理
+    img.addEventListener("click", function () {
+
+        if (img.dataset.favorite === "true") {
+            // 好物をクリック → 正解
+            score += scoreMultiplier;
+            scoreDisplay.textContent = Math.round(score);
+            happyCharacter();
+        } else {
+            // 苦手をクリック → ミス
+            missAction();
+        }
+
+        img.remove();
+    });
+}
+
+// ミス時にライフを1つ減らす処理
+function missAction() {
+
+    lives--;
+
+    // ❤の数を残りライフ分、🖤の数を減った分だけ表示する
+    livesDisplay.textContent = "❤".repeat(Math.max(lives, 0)) +
+                                "🖤".repeat(3 - Math.max(lives, 0));
+
+    // ライフが0になったらゲーム終了
+    if (lives <= 0) {
+        endGame();
+    }
+}
+
+// クリック成功時にキャラを一瞬Happy画像にする
+function happyCharacter() {
+
+    character.src = happyImage;
+
+    setTimeout(function () {
+        character.src = normalImage;
+    }, 400);
+
+}
+
+// 一定間隔ごとに食べ物を1つ出現させるタイマー
+const spawnTimer = setInterval(spawnFood, spawnInterval);
+
+// 1秒ごとに残り時間を減らすタイマー
+const countdownTimer = setInterval(function () {
+
+    timeLeft--;
+    timeDisplay.textContent = timeLeft;
+
+    // 時間切れでゲーム終了
+    if (timeLeft <= 0) {
+        endGame();
+    }
+
+}, 1000);
+
+// ゲーム終了処理が二重に呼ばれないようにするための目印
+let gameEnded = false;
+
+// ゲーム終了時の処理
+function endGame() {
+
+    if (gameEnded) return;
+    gameEnded = true;
+
+    // 出現・カウントダウンのタイマーを両方止める
+    clearInterval(spawnTimer);
+    clearInterval(countdownTimer);
+
+    // 画面に残っている食べ物を全部消す
+    document.querySelectorAll(".food-item").forEach(el => el.remove());
+
+    // game_base.html側の「ゲーム終了」画面を表示
+    document.getElementById("game-over").style.display = "flex";
+    document.getElementById("final-score").textContent = Math.round(score);
+
+    // 3秒後にスコアと難易度を付けてホームへ戻る
+    setTimeout(function () {
+
+        window.location.href =
+            "{% url 'home' %}?action=food_result&score=" + Math.round(score) +
+            "&difficulty=" + difficulty;
+
+    }, 3000);
+
+}
+
+{% endblock %}

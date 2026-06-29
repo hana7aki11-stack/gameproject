@@ -683,6 +683,24 @@ pointer-events: none;
 
 </form>
 
+<div class="action-card">
+
+        <button class="sub-action-button"
+                type="submit"
+                name="menu"
+                value="food_difficulty"
+                {% if remaining_time < 1 or game_end %}disabled{% endif %}>
+            好きなごはん選び
+        </button>
+
+        <div class="action-info">
+            <p>2時間</p>
+        </div>
+
+    </div>
+
+</form>
+
 {% endif %}
 
 
@@ -768,6 +786,50 @@ pointer-events: none;
                     name="difficulty"
                     value="{{ level.key }}"
                     {% if remaining_time < 2 or game_end %}disabled{% endif %}>
+                {{ level.label }}
+            </button>
+
+        {% else %}
+
+            <button class="sub-action-button" type="button" disabled>
+                {{ level.label }}
+            </button>
+
+        {% endif %}
+
+        <div class="action-info">
+            <p>2時間</p>
+        </div>
+
+    </div>
+
+    {% endfor %}
+
+</form>
+
+{% endif %}
+
+
+<!-- 好きなごはん選び：難易度選択メニュー -->
+{% if menu == 'food_difficulty' %}
+
+<form method="GET">
+
+    <input type="hidden"
+           name="action"
+           value="food_minigame">
+
+    {% for level in difficulty_list %}
+
+    <div class="action-card">
+
+        {% if level.unlocked %}
+
+            <button class="sub-action-button"
+                    type="submit"
+                    name="difficulty"
+                    value="{{ level.key }}"
+                    {% if remaining_time < 1 or game_end %}disabled{% endif %}>
                 {{ level.label }}
             </button>
 
