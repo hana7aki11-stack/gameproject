@@ -4,12 +4,25 @@
 {% block page_title %}好きなごはん選び{% endblock %}
 {# ブラウザのタブに表示されるタイトル #}
 
+{% block result_label %}残りライフ{% endblock %}
+{# ゲーム終了画面のラベルを「スコア」から「残りライフ」に変更 #}
+
 
 {% block extra_style %}
+
+/* 当たり食べ物のサムネイル */
+.favorite-icon {
+    width: 40px;
+    vertical-align: middle;
+    margin: 0 4px;
+    filter: drop-shadow(0 0 4px gold); /* 落下中と同じ光る枠 */
+}
+
+
 {# 好きなごはん選び専用のCSS #}
 
 .food-item{
-    width:60px;          /* 食べ物画像のサイズ */
+    width:200px;          /* 食べ物画像のサイズ */
     position:absolute;   /* 自由に位置を動かすため */
     cursor:pointer;       /* クリック可能を示すマウスカーソル */
     top:-60px;            /* 画面上の外側からスタートさせる */
@@ -23,8 +36,16 @@
 
 
 {% block status_extra %}
-{# スコア・タイマーの横にライフ表示を追加 #}
+
+{# ライフ表示 #}
 <div>ライフ：<span class="lives" id="lives">❤❤❤</span></div>
+
+{# 当たりの食べ物一覧（JSで動的に追加される） #}
+<div>
+    好きな食べ物：
+    <span id="favorite-list"></span>
+</div>
+
 {% endblock %}
 
 
@@ -58,6 +79,66 @@
 
 {% block script %}
 
+// 食べ物画像のパス一覧を配列として取得
+const foodSrcElements = document.querySelectorAll(".food-src");
+const foodImages = Array.from(foodSrcElements).map(el => el.dataset.src);
+
+// -------------------------
+// 当たりの個数を固定で決める
+// -------------------------
+
+// 当たりにする個数（食べ物の種類数を超えないように調整）
+const FAVORITE_COUNT = Math.min(3, foodImages.length);
+
+// 配列の中身をランダムな順番に並べ替える関数
+function shuffleArray(array) {
+
+    // 元の配列を壊さないようコピーを作る
+    const result = array.slice();
+
+    for (let i = result.length - 1; i > 0; i--) {
+
+        const j = Math.floor(Math.random() * (i + 1));
+
+        // i番目とj番目を入れ替える
+        const temp = result[i];
+        result[i] = result[j];
+        result[j] = temp;
+    }
+
+    return result;
+}
+
+// 食べ物画像の順番をシャッフルする
+const shuffledImages = shuffleArray(foodImages);
+
+// ゲーム開始時に各食べ物画像を「当たり/ハズレ」に振り分ける
+// シャッフル後の先頭からFAVORITE_COUNT個だけを当たりにする
+// この結果はゲーム終了まで変わらない
+const favoriteFoods = {};
+
+foodImages.forEach(function(src, index) {
+
+    // shuffledImages内での順番を調べて、先頭からFAVORITE_COUNT番目以内かどうかで判定
+    const shuffledIndex = shuffledImages.indexOf(src);
+    favoriteFoods[src] = shuffledIndex < FAVORITE_COUNT;
+});
+
+// 当たりの画像を「好きな食べ物」欄に表示する
+const favoriteList = document.getElementById("favorite-list");
+
+foodImages.forEach(function(src) {
+    if (favoriteFoods[src]) {
+
+        const icon = document.createElement("img");
+        icon.src = src;
+        icon.className = "favorite-icon";
+
+        favoriteList.appendChild(icon);
+    }
+});
+
+
 // 難易度の設定値を取得
 const config = document.getElementById("game-config");
 
@@ -69,9 +150,6 @@ const scoreMultiplier = parseFloat(config.dataset.scoreMultiplier);
 // 制限時間（秒）
 let timeLeft = parseInt(config.dataset.timeLimit);
 
-// 食べ物画像のパス一覧を配列として取得
-const foodSrcElements = document.querySelectorAll(".food-src");
-const foodImages = Array.from(foodSrcElements).map(el => el.dataset.src);
 
 // キャラクター画像の要素とパス
 const character = document.getElementById("character");
@@ -93,53 +171,51 @@ timeDisplay.textContent = timeLeft;
 // 食べ物を1つ生成して落としてくる関数
 function spawnFood() {
 
-    // 画像要素を新しく作る
     const img = document.createElement("img");
     img.className = "food-item";
 
-    // 好物かどうかをランダムに決める（毎回変わる）
-    const isFavorite = Math.random() < 0.5;
-
-    // 画像もランダムに選ぶ
     const src = foodImages[Math.floor(Math.random() * foodImages.length)];
     img.src = src;
 
-    // 好物かどうかを画像自身に記録しておく
+    const isFavorite = favoriteFoods[src];
+
     img.dataset.favorite = isFavorite ? "true" : "false";
 
-    // 好物には光る枠をつけて見分けやすくする
+    // クリック済みかどうかを管理する印（最初は未処理）
+    img.dataset.handled = "false";
+
     if (isFavorite) {
         img.style.filter = "drop-shadow(0 0 6px gold)";
     }
 
-    // 横方向の出現位置をランダムに決める
     const maxX = area.clientWidth - 60;
     const startX = Math.random() * maxX;
     img.style.left = startX + "px";
     img.style.top = "-60px";
 
-    // ゲームエリアに追加
     area.appendChild(img);
 
-    // 落ちる速さ（flowSpeedが大きいほど短時間で落ちきる）
     const fallDuration = 3000 / flowSpeed;
     const startTime = performance.now();
 
     // 食べ物を少しずつ下に落とすアニメーション処理
     function fall() {
 
+        // すでにクリックなどで処理済みなら、ここで止める
+        if (img.dataset.handled === "true") {
+            return;
+        }
+
         const elapsed = performance.now() - startTime;
         const progress = elapsed / fallDuration;
 
-        // 画面外まで落ちきった場合
         if (progress >= 1) {
 
-            // 好物を見逃した場合はミス扱い
             if (img.dataset.favorite === "true") {
                 missAction();
             }
-            // 苦手を見逃した場合は何もしない（クリックしなくて正解）
 
+            img.dataset.handled = "true";
             img.remove();
             return;
         }
@@ -151,18 +227,23 @@ function spawnFood() {
         requestAnimationFrame(fall);
     }
 
+    // アニメーションを開始する
     requestAnimationFrame(fall);
 
-    // クリックされた時の処理
+    // クリックされた時の処理（fall関数の外、spawnFoodの中に1回だけ書く）
     img.addEventListener("click", function () {
 
+        if (img.dataset.handled === "true") {
+            return;
+        }
+
+        img.dataset.handled = "true";
+
         if (img.dataset.favorite === "true") {
-            // 好物をクリック → 正解
             score += scoreMultiplier;
             scoreDisplay.textContent = Math.round(score);
             happyCharacter();
         } else {
-            // 苦手をクリック → ミス
             missAction();
         }
 
@@ -228,15 +309,20 @@ function endGame() {
     // 画面に残っている食べ物を全部消す
     document.querySelectorAll(".food-item").forEach(el => el.remove());
 
+    // 残ったライフの数（0未満にはならないようにする）
+    const finalLives = Math.max(lives, 0);
+
     // game_base.html側の「ゲーム終了」画面を表示
     document.getElementById("game-over").style.display = "flex";
-    document.getElementById("final-score").textContent = Math.round(score);
 
-    // 3秒後にスコアと難易度を付けてホームへ戻る
+    // スコアではなく、残りライフを♡の数で表示する
+    document.getElementById("final-score").textContent = "❤".repeat(finalLives);
+
+    // 3秒後に「残りライフ」と「難易度」を付けてホームへ戻る
     setTimeout(function () {
 
         window.location.href =
-            "{% url 'home' %}?action=food_result&score=" + Math.round(score) +
+            "{% url 'home' %}?action=food_result&lives=" + finalLives +
             "&difficulty=" + difficulty;
 
     }, 3000);

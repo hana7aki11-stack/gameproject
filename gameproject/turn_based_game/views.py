@@ -385,39 +385,45 @@ def home(request):
 
         request.session["event_message"] = event_message
 
-
-
     # -------------------------
     # 好きなごはん選び 終了
     # -------------------------
 
     if action == "food_result":
 
-        score = int(request.GET.get("score", 0))
+        # 残ったライフの数（0〜3）を取得
+        food_lives = int(request.GET.get("lives", 0))
 
         healthy_food_count += 1
-        remaining_time -= 0  # 時間は開始時に消費済みなのでここでは消費しない
 
-        # サラダの効果（satisfaction+10, energy+8, fullness+10）を基準にスケール
-        if score < 5:
+        # ライフの数に応じて結果を段階分け（サラダの効果を基準にスケール）
+        if food_lives == 0:
+            # 力尽きた場合：効果は半減気味
             satisfaction += 5
             energy += 4
             fullness += 5
-            event_message = "少し食べられた"
+            event_message = "あまり選べなかった…"
 
-        elif score < 15:
-            satisfaction += 10
-            energy += 8
-            fullness += 10
+        elif food_lives == 1:
+            satisfaction += 8
+            energy += 6
+            fullness += 8
+            event_message = "なんとか食べられた"
+
+        elif food_lives == 2:
+            satisfaction += 12
+            energy += 9
+            fullness += 12
             growth += 1
-            event_message = "好物をたくさん食べられた！"
+            event_message = "好物をしっかり選べた！"
 
         else:
-            satisfaction += 15
-            energy += 12
-            fullness += 15
+            # food_lives == 3（ノーミス）
+            satisfaction += 20
+            energy += 14
+            fullness += 18
             growth += 2
-            event_message = "大好物をたくさん食べて大満足！"
+            event_message = "完璧に好物だけ選べた！大満足！"
 
         request.session["event_message"] = event_message
 
@@ -1548,7 +1554,6 @@ def food_game(request):
     background_image = "images/morning.png"
 
     # 流れてくる食べ物画像（好物・苦手どちらにもなりうる候補）
-    # ※ images/food1.png 〜 food6.png を用意してください
     food_item_images = [
         "images/food1.png",
         "images/food2.png",

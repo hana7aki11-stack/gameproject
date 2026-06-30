@@ -111,13 +111,13 @@ body{
         <!-- ゲーム終了画面 -->
         <div id="game-over">
 
-            <h2>ゲーム終了！</h2>
+    <h2>ゲーム終了！</h2>
 
-            <p>スコア：<span id="final-score"></span></p>
+    <p>{% block result_label %}スコア{% endblock %}：<span id="final-score"></span></p>
 
-            <p>ホーム画面へ戻ります…</p>
+    <p>ホーム画面へ戻ります…</p>
 
-        </div>
+</div>
 
     </div>
 
