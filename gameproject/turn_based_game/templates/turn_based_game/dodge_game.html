@@ -223,9 +223,49 @@ btnRight.addEventListener("mouseup", function () {
     keysPressed["ArrowRight"] = false;
 });
 
-// ボタンを押したまま画面外に指が出た場合の対策
-document.addEventListener("touchend", function () {
+// 左ボタン
+btnLeft.addEventListener("touchstart", function (e) {
+    e.preventDefault();
+    keysPressed["ArrowLeft"] = true;
+});
+btnLeft.addEventListener("touchend", function (e) {
+    e.preventDefault();
     keysPressed["ArrowLeft"] = false;
+});
+btnLeft.addEventListener("touchcancel", function () {
+    // 指が画面外に出た場合も止める
+    keysPressed["ArrowLeft"] = false;
+});
+btnLeft.addEventListener("mousedown", function () {
+    keysPressed["ArrowLeft"] = true;
+});
+btnLeft.addEventListener("mouseup", function () {
+    keysPressed["ArrowLeft"] = false;
+});
+btnLeft.addEventListener("mouseleave", function () {
+    // マウスがボタンから外れた場合も止める
+    keysPressed["ArrowLeft"] = false;
+});
+
+// 右ボタン
+btnRight.addEventListener("touchstart", function (e) {
+    e.preventDefault();
+    keysPressed["ArrowRight"] = true;
+});
+btnRight.addEventListener("touchend", function (e) {
+    e.preventDefault();
+    keysPressed["ArrowRight"] = false;
+});
+btnRight.addEventListener("touchcancel", function () {
+    keysPressed["ArrowRight"] = false;
+});
+btnRight.addEventListener("mousedown", function () {
+    keysPressed["ArrowRight"] = true;
+});
+btnRight.addEventListener("mouseup", function () {
+    keysPressed["ArrowRight"] = false;
+});
+btnRight.addEventListener("mouseleave", function () {
     keysPressed["ArrowRight"] = false;
 });
 
