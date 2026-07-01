@@ -180,9 +180,9 @@ def home(request):
         'meal': 2,
         'ball': 2,
         'toy': 1,
-        'bike': 3,
         'rest': 2,
         'food_minigame': 1,
+        'dodge_minigame':3,
     }
 
     # 行動可能か判定
@@ -427,6 +427,57 @@ def home(request):
 
         request.session["event_message"] = event_message
 
+    # -------------------------
+    # 障害物よけ 終了
+    # -------------------------
+
+    if action == "dodge_result":
+
+        dodge_lives = int(request.GET.get("lives", 0))
+        dodge_score = int(request.GET.get("score", 0))
+
+        play_count += 1
+
+        # ライフの数を基準にパラメータを変動させる
+        # サイクリング基準（energy+12, satisfaction+8, fullness-15, growth+1）を参考に
+
+        if dodge_lives == 0:
+            # 力尽きた
+            satisfaction += 3
+            energy += 4
+            fullness -= 15
+            event_message = "うまく避けられなかった…"
+
+        elif dodge_lives == 1:
+            satisfaction += 6
+            energy += 8
+            fullness -= 15
+            growth += 1
+            event_message = "なんとか避けられた！"
+
+        elif dodge_lives == 2:
+            satisfaction += 10
+            energy += 12
+            fullness -= 15
+            growth += 2
+            event_message = "上手に避けられた！"
+
+        else:
+            # ライフ3（ノーダメージ）
+            satisfaction += 14
+            energy += 16
+            fullness -= 15
+            growth += 3
+            event_message = "完璧！一度も当たらなかった！"
+
+        # アイテムをたくさん取れた場合はボーナス
+        if dodge_score >= 5:
+            satisfaction += 3
+            growth += 1
+            event_message += "アイテムもたくさん取れた！"
+
+        request.session["event_message"] = event_message
+
 
 
     # ゲーム終了判定
@@ -439,9 +490,9 @@ def home(request):
         'meal': 2,
         'ball': 2,
         'toy': 1,
-        'bike': 3,
         'rest': 2,
         'food_minigame': 1,
+        'dodge_minigame': 3,
     }
 
     # 行動可能か判定
@@ -764,6 +815,7 @@ def home(request):
 
 
 
+
     elif action == 'toy' and can_act:
 
         play_count += 1
@@ -779,18 +831,27 @@ def home(request):
 
 
 
-    elif action == 'bike' and can_act:
 
-        play_count += 1
+    elif action == "dodge_minigame" and can_act:
 
-        satisfaction += 8
-        energy += 12
-        fullness -= 15
-        growth += 1
+        difficulty = request.GET.get("difficulty", "easy")
 
-        remaining_time -= 3
+        unlocked_keys = [
 
-        reaction_state = "normal_play"
+            d['key'] for d in difficulty_list if d['unlocked']
+
+        ]
+
+        if difficulty not in unlocked_keys:
+            difficulty = "easy"
+
+        remaining_time -= action_cost['dodge_minigame']
+
+        request.session["remaining_time"] = remaining_time
+
+        query = urlencode({"difficulty": difficulty})
+
+        return redirect(f"{reverse('dodge_game')}?{query}")
 
 
 
@@ -1582,5 +1643,68 @@ def food_game(request):
     return render(
         request,
         "turn_based_game/food_game.html",
+        status
+    )
+
+
+
+def dodge_game(request):
+
+    # 成長度を取得
+    growth = request.session["growth"]
+
+    # 成長段階を判定
+    if growth < 20:
+        growth_stage = 0
+    elif growth < 40:
+        growth_stage = 1
+    elif growth < 80:
+        growth_stage = 2
+    elif growth < 100:
+        growth_stage = 3
+    else:
+        growth_stage = 4
+
+    # 難易度の解放状況を取得
+    difficulty_list = get_difficulty_list(growth_stage)
+
+    selected_difficulty = request.GET.get('difficulty', 'easy')
+    unlocked_keys = [d['key'] for d in difficulty_list if d['unlocked']]
+
+    if selected_difficulty not in unlocked_keys:
+        selected_difficulty = 'easy'
+
+    # 難易度ごとのゲームパラメータ
+    DODGE_DIFFICULTY_SETTINGS = {
+        'easy':   {'obstacle_count': 2, 'fall_speed': 1.0, 'time_limit': 20},
+        'normal': {'obstacle_count': 3, 'fall_speed': 1.4, 'time_limit': 18},
+        'hard':   {'obstacle_count': 4, 'fall_speed': 1.8, 'time_limit': 15},
+        'oni':    {'obstacle_count': 5, 'fall_speed': 2.4, 'time_limit': 12},
+    }
+
+    current_settings = DODGE_DIFFICULTY_SETTINGS[selected_difficulty]
+
+    character_image = f"images/character{growth_stage}.png"
+    character_happy_image = f"images/character{growth_stage}-happy.png"
+    character_damage_image = f"images/character{growth_stage}-tired.png"
+    background_image = "images/morning.png"
+
+    status = {
+        "growth_stage": growth_stage,
+        "character_image": character_image,
+        "character_happy_image": character_happy_image,
+        "character_damage_image": character_damage_image,
+        "background_image": background_image,
+        "game_title": "障害物よけ",
+
+        "selected_difficulty": selected_difficulty,
+        "obstacle_count": current_settings['obstacle_count'],
+        "fall_speed": current_settings['fall_speed'],
+        "time_limit": current_settings['time_limit'],
+    }
+
+    return render(
+        request,
+        "turn_based_game/dodge_game.html",
         status
     )

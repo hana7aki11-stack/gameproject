@@ -1,0 +1,466 @@
+{% extends 'turn_based_game/game_base.html' %}
+{% load static %}
+
+{% block page_title %}障害物よけ{% endblock %}
+{# ブラウザのタブに表示されるタイトル #}
+
+{% block result_label %}残りライフ{% endblock %}
+
+
+{% block extra_style %}
+
+#lives {
+    color: #e53935;
+    letter-spacing: 4px;
+}
+
+{# 障害物よけ専用のCSS #}
+/* 左右移動ボタン（キャラクターの両脇に配置） */
+.character-with-buttons {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 20px;
+    margin-top: 20px;
+}
+
+.move-button {
+    font-size: 36px;
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(0,0,0,0.15);
+    cursor: pointer;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: manipulation;
+    flex-shrink: 0;  /* ボタンが縮まないようにする */
+}
+
+.move-button:active {
+    background: rgba(0,0,0,0.35);
+}
+
+
+/* キャラクターをゲームエリア下部に固定 */
+#player {
+    position: absolute;
+    bottom: 10px;
+    width: 80px;
+}
+
+/* 落下してくるオブジェクト共通 */
+.fall-object {
+    position: absolute;
+    font-size: 40px;
+    line-height: 1;
+    user-select: none;
+    pointer-events: none;
+}
+
+/* スコア変化エフェクト（+1 / -1 が浮かび上がる） */
+.score-effect {
+    position: absolute;
+    font-size: 24px;
+    font-weight: bold;
+    pointer-events: none;
+    animation: floatUp 0.8s ease-out forwards;
+    z-index: 20;
+}
+
+@keyframes floatUp {
+    0%   { opacity: 1; transform: translateY(0); }
+    100% { opacity: 0; transform: translateY(-40px); }
+}
+
+{% endblock %}
+
+
+{% block status_extra %}
+<div style="font-size:14px; color:#666;">← → キー または ボタンで移動</div>
+<div>ライフ：<span id="lives">❤❤❤</span></div>
+{% endblock %}
+
+
+{% block game_area %}
+{# キャラクターをゲームエリアに配置（落下物はJSで動的に追加） #}
+<img src="{% static character_image %}" id="player">
+{% endblock %}
+
+{% block character_area %}
+
+{# ← キャラクター → の配置 #}
+<div class="character-with-buttons">
+
+    <button class="move-button" id="btn-left">◀</button>
+
+    <img src="{% static character_image %}" id="character" style="height:180px;">
+
+    <button class="move-button" id="btn-right">▶</button>
+
+</div>
+
+{% endblock %}
+
+
+{% block config %}
+
+{# views.pyから渡した設定値をJSに渡す（非表示） #}
+<div id="game-config"
+     data-difficulty="{{ selected_difficulty }}"
+     data-obstacle-count="{{ obstacle_count }}"
+     data-fall-speed="{{ fall_speed }}"
+     data-time-limit="{{ time_limit }}"
+     data-damage-image="{% static character_damage_image %}"
+     data-happy-image="{% static character_happy_image %}"
+     style="display:none;">
+</div>
+
+{% endblock %}
+
+
+{% block script %}
+
+// 設定値を取得
+const config = document.getElementById("game-config");
+
+const difficulty = config.dataset.difficulty;
+const obstacleCount = parseInt(config.dataset.obstacleCount);
+const fallSpeed = parseFloat(config.dataset.fallSpeed);
+let timeLeft = parseInt(config.dataset.timeLimit);
+
+// キャラクター画像のパス
+const normalImage = "{% static character_image %}";
+const happyImage = config.dataset.happyImage;
+const damageImage = config.dataset.damageImage;
+
+// ゲームエリアとキャラクター要素を取得
+const area = document.getElementById("game-area");
+const player = document.getElementById("player");
+const scoreDisplay = document.getElementById("score");
+const timeDisplay = document.getElementById("time");
+
+timeDisplay.textContent = timeLeft;
+
+// -------------------------
+// 落下オブジェクトの定義
+// -------------------------
+
+// 障害物（当たるとスコア-1）
+const OBSTACLES = ["🪨", "🌳", "💧"];
+
+// アイテム（取るとスコア+1）
+const ITEMS = ["🌸", "⚽", "⭐"];
+
+// スコアの初期化
+let score = 0;
+
+// ライフの初期化
+let lives = 3;
+const livesDisplay = document.getElementById("lives");
+
+// -------------------------
+// キャラクターの位置管理
+// -------------------------
+
+let playerX = area.clientWidth / 2 - 40;
+player.style.left = playerX + "px";
+
+const MOVE_STEP = 10;
+
+// 押されている方向を管理（キーボード・ボタン共通）
+const keysPressed = {};
+
+// -------------------------
+// キーボード操作
+// -------------------------
+
+document.addEventListener("keydown", function (e) {
+    keysPressed[e.key] = true;
+});
+
+document.addEventListener("keyup", function (e) {
+    keysPressed[e.key] = false;
+});
+
+// -------------------------
+// 左右ボタン操作（スマホ・PC共通）
+// touchstart/touchend → スマホ
+// mousedown/mouseup   → PCでのボタンクリック
+// -------------------------
+
+const btnLeft = document.getElementById("btn-left");
+const btnRight = document.getElementById("btn-right");
+
+// 左ボタン
+btnLeft.addEventListener("touchstart", function (e) {
+    e.preventDefault(); // スクロールを防ぐ
+    keysPressed["ArrowLeft"] = true;
+});
+btnLeft.addEventListener("touchend", function () {
+    keysPressed["ArrowLeft"] = false;
+});
+btnLeft.addEventListener("mousedown", function () {
+    keysPressed["ArrowLeft"] = true;
+});
+btnLeft.addEventListener("mouseup", function () {
+    keysPressed["ArrowLeft"] = false;
+});
+
+// 右ボタン
+btnRight.addEventListener("touchstart", function (e) {
+    e.preventDefault();
+    keysPressed["ArrowRight"] = true;
+});
+btnRight.addEventListener("touchend", function () {
+    keysPressed["ArrowRight"] = false;
+});
+btnRight.addEventListener("mousedown", function () {
+    keysPressed["ArrowRight"] = true;
+});
+btnRight.addEventListener("mouseup", function () {
+    keysPressed["ArrowRight"] = false;
+});
+
+// ボタンを押したまま画面外に指が出た場合の対策
+document.addEventListener("touchend", function () {
+    keysPressed["ArrowLeft"] = false;
+    keysPressed["ArrowRight"] = false;
+});
+
+// キャラクターの位置を更新（毎フレーム呼ばれる）
+function updatePlayerPosition() {
+
+    if (keysPressed["ArrowLeft"]) {
+        playerX = Math.max(0, playerX - MOVE_STEP);
+    }
+
+    if (keysPressed["ArrowRight"]) {
+        playerX = Math.min(area.clientWidth - player.offsetWidth, playerX + MOVE_STEP);
+    }
+
+    player.style.left = playerX + "px";
+}
+
+// -------------------------
+// スコア変化エフェクト
+// -------------------------
+
+function showScoreEffect(x, y, text, color) {
+
+    const effect = document.createElement("div");
+    effect.className = "score-effect";
+    effect.textContent = text;
+    effect.style.left = x + "px";
+    effect.style.top = y + "px";
+    effect.style.color = color;
+
+    area.appendChild(effect);
+
+    setTimeout(function () {
+        effect.remove();
+    }, 800);
+}
+
+// -------------------------
+// キャラクター画像の切り替え
+// -------------------------
+
+function showHappyCharacter() {
+
+    player.src = happyImage;
+
+    setTimeout(function () {
+        player.src = normalImage;
+    }, 400);
+}
+
+function showDamageCharacter() {
+
+    player.src = damageImage;
+
+    setTimeout(function () {
+        player.src = normalImage;
+    }, 400);
+}
+
+// -------------------------
+// 落下オブジェクトを1つ生成
+// -------------------------
+
+function spawnObject() {
+
+    const el = document.createElement("div");
+    el.className = "fall-object";
+
+    // 60%の確率で障害物、40%でアイテム
+    const isObstacle = Math.random() < 0.6;
+
+    if (isObstacle) {
+        el.textContent = OBSTACLES[Math.floor(Math.random() * OBSTACLES.length)];
+        el.dataset.type = "obstacle";
+    } else {
+        el.textContent = ITEMS[Math.floor(Math.random() * ITEMS.length)];
+        el.dataset.type = "item";
+    }
+
+    const maxX = area.clientWidth - 40;
+    el.style.left = Math.random() * maxX + "px";
+    el.style.top = "-50px";
+
+    area.appendChild(el);
+
+    const fallDuration = 3000 / fallSpeed;
+    const startTime = performance.now();
+
+    function fall() {
+
+        if (gameEnded) {
+            el.remove();
+            return;
+        }
+
+        const elapsed = performance.now() - startTime;
+        const progress = elapsed / fallDuration;
+
+        if (progress >= 1) {
+            el.remove();
+            return;
+        }
+
+        const currentY = progress * (area.clientHeight + 50) - 50;
+        el.style.top = currentY + "px";
+
+        // キャラクターとの当たり判定
+        const elX = parseFloat(el.style.left);
+        const playerBottom = area.clientHeight - 10 - player.offsetHeight;
+
+        const hitY = currentY + 40 > playerBottom && currentY < playerBottom + player.offsetHeight;
+        const hitX = elX + 40 > playerX && elX < playerX + player.offsetWidth;
+
+        if (hitY && hitX) {
+
+    if (el.dataset.type === "obstacle") {
+
+        // 障害物に当たった → ライフ-1
+        lives--;
+        livesDisplay.textContent = "❤".repeat(Math.max(lives, 0)) +
+                                    "🖤".repeat(3 - Math.max(lives, 0));
+
+        showScoreEffect(elX, currentY, "-1", "#e53935");
+        showDamageCharacter();
+
+        // ライフが0になったらゲーム終了
+        if (lives <= 0) {
+            el.remove();
+            endGame();
+            return;
+        }
+
+    } else {
+
+        // アイテムを取った → スコア+1
+        score += 1;
+        scoreDisplay.textContent = score;
+        showScoreEffect(elX, currentY, "+1", "#4caf50");
+        showHappyCharacter();
+    }
+
+    el.remove();
+    return;
+}
+
+        requestAnimationFrame(fall);
+    }
+
+    requestAnimationFrame(fall);
+}
+
+// -------------------------
+// ゲームループ（毎フレームキャラ位置を更新）
+// -------------------------
+
+let gameLoopRunning = false;
+
+function gameLoop() {
+
+    if (!gameLoopRunning) return;
+
+    updatePlayerPosition();
+
+    requestAnimationFrame(gameLoop);
+}
+
+// -------------------------
+// ゲーム終了処理
+// -------------------------
+
+let gameEnded = false;
+let spawnTimer = null;
+let countTimer = null;
+
+function endGame() {
+
+    if (gameEnded) return;
+    gameEnded = true;
+    gameLoopRunning = false;
+
+　　　// 戻るボタンを無効化
+    document.getElementById("back-button").style.pointerEvents = "none";
+    document.getElementById("back-button").style.opacity = "0.4";
+
+
+    clearInterval(spawnTimer);
+    clearInterval(countTimer);
+
+    document.querySelectorAll(".fall-object").forEach(el => el.remove());
+
+    // 残りライフを❤で表示
+    const finalLives = Math.max(lives, 0);
+
+    document.getElementById("game-over").style.display = "flex";
+    document.getElementById("final-score").textContent = "❤".repeat(finalLives);
+
+    // 残りライフとスコア（アイテム取得数）を両方送る
+    setTimeout(function () {
+
+        window.location.href =
+            "{% url 'home' %}?action=dodge_result&lives=" + finalLives +
+            "&score=" + score +
+            "&difficulty=" + difficulty;
+
+    }, 5000);
+}
+
+// -------------------------
+// ゲーム本体の開始処理（カウントダウン終了後に呼ばれる）
+// -------------------------
+
+function startDodgeGame() {
+
+    // ゲームループ開始（キャラ移動の更新）
+    gameLoopRunning = true;
+    gameLoop();
+
+    // obstacleCountが多いほど頻繁にオブジェクトが出現する
+    const spawnInterval = Math.max(400, 1200 / obstacleCount);
+    spawnTimer = setInterval(spawnObject, spawnInterval);
+
+    // 制限時間カウントダウン
+    countTimer = setInterval(function () {
+
+        timeLeft--;
+        timeDisplay.textContent = timeLeft;
+
+        if (timeLeft <= 0) {
+            endGame();
+        }
+
+    }, 1000);
+}
+
+// カウントダウンを開始し、終わったら startDodgeGame() を呼ぶ
+startCountdown(startDodgeGame);
+
+{% endblock %}

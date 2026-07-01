@@ -22,7 +22,6 @@
 {# 好きなごはん選び専用のCSS #}
 
 .food-item{
-    width:200px;          /* 食べ物画像のサイズ */
     position:absolute;   /* 自由に位置を動かすため */
     cursor:pointer;       /* クリック可能を示すマウスカーソル */
     top:-60px;            /* 画面上の外側からスタートさせる */
@@ -168,11 +167,15 @@ let lives = 3;
 
 timeDisplay.textContent = timeLeft;
 
+// 食べ物画像のサイズ（CSSとJSの両方の計算で使う共通の値）
+const FOOD_SIZE = 200;
+
 // 食べ物を1つ生成して落としてくる関数
 function spawnFood() {
 
     const img = document.createElement("img");
     img.className = "food-item";
+    img.style.width = FOOD_SIZE + "px";   // ← ここでサイズを指定
 
     const src = foodImages[Math.floor(Math.random() * foodImages.length)];
     img.src = src;
@@ -180,28 +183,25 @@ function spawnFood() {
     const isFavorite = favoriteFoods[src];
 
     img.dataset.favorite = isFavorite ? "true" : "false";
-
-    // クリック済みかどうかを管理する印（最初は未処理）
     img.dataset.handled = "false";
 
     if (isFavorite) {
         img.style.filter = "drop-shadow(0 0 6px gold)";
     }
 
-    const maxX = area.clientWidth - 60;
+    // 横方向：画像サイズ分はみ出さないように計算
+    const maxX = area.clientWidth - FOOD_SIZE;
     const startX = Math.random() * maxX;
     img.style.left = startX + "px";
-    img.style.top = "-60px";
+    img.style.top = -FOOD_SIZE + "px";
 
     area.appendChild(img);
 
     const fallDuration = 3000 / flowSpeed;
     const startTime = performance.now();
 
-    // 食べ物を少しずつ下に落とすアニメーション処理
     function fall() {
 
-        // すでにクリックなどで処理済みなら、ここで止める
         if (img.dataset.handled === "true") {
             return;
         }
@@ -220,35 +220,41 @@ function spawnFood() {
             return;
         }
 
-        // 現在の進行度に応じて位置を更新
-        img.style.top = (progress * (area.clientHeight + 60) - 60) + "px";
+        // 縦方向：画像サイズ分を使ってはみ出さないように計算
+        img.style.top = (progress * (area.clientHeight + FOOD_SIZE) - FOOD_SIZE) + "px";
 
-        // 次のフレームでも続ける
         requestAnimationFrame(fall);
     }
 
-    // アニメーションを開始する
     requestAnimationFrame(fall);
 
-    // クリックされた時の処理（fall関数の外、spawnFoodの中に1回だけ書く）
-    img.addEventListener("click", function () {
+   // クリック・タップ時の処理をまとめた関数
+function handleFoodHit(e) {
 
-        if (img.dataset.handled === "true") {
-            return;
-        }
+    e.preventDefault();
 
-        img.dataset.handled = "true";
+    if (img.dataset.handled === "true") {
+        return;
+    }
 
-        if (img.dataset.favorite === "true") {
-            score += scoreMultiplier;
-            scoreDisplay.textContent = Math.round(score);
-            happyCharacter();
-        } else {
-            missAction();
-        }
+    img.dataset.handled = "true";
 
-        img.remove();
-    });
+    if (img.dataset.favorite === "true") {
+        score += scoreMultiplier;
+        scoreDisplay.textContent = Math.round(score);
+        happyCharacter();
+    } else {
+        missAction();
+    }
+
+    img.remove();
+}
+
+// PC用（クリック）
+img.addEventListener("click", handleFoodHit);
+
+// スマホ用（タップ）
+img.addEventListener("touchstart", handleFoodHit);
 }
 
 // ミス時にライフを1つ減らす処理
@@ -277,21 +283,25 @@ function happyCharacter() {
 
 }
 
-// 一定間隔ごとに食べ物を1つ出現させるタイマー
-const spawnTimer = setInterval(spawnFood, spawnInterval);
+let spawnTimer;
+let countdownTimer;
 
-// 1秒ごとに残り時間を減らすタイマー
-const countdownTimer = setInterval(function () {
+startCountdown(function(){
 
-    timeLeft--;
-    timeDisplay.textContent = timeLeft;
+    spawnTimer = setInterval(spawnFood, spawnInterval);
 
-    // 時間切れでゲーム終了
-    if (timeLeft <= 0) {
-        endGame();
-    }
+    countdownTimer = setInterval(function(){
 
-}, 1000);
+        timeLeft--;
+        timeDisplay.textContent = timeLeft;
+
+        if(timeLeft <= 0){
+            endGame();
+        }
+
+    },1000);
+
+});
 
 // ゲーム終了処理が二重に呼ばれないようにするための目印
 let gameEnded = false;
@@ -301,6 +311,10 @@ function endGame() {
 
     if (gameEnded) return;
     gameEnded = true;
+
+　　　// 戻るボタンを無効化
+    document.getElementById("back-button").style.pointerEvents = "none";
+    document.getElementById("back-button").style.opacity = "0.4";
 
     // 出現・カウントダウンのタイマーを両方止める
     clearInterval(spawnTimer);

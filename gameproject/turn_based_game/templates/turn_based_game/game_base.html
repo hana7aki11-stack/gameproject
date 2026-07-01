@@ -65,6 +65,48 @@ body{
     color:white;
 }
 
+
+#countdown-screen{
+    position:absolute;
+    top:0;
+    left:0;
+    width:100%;
+    height:100%;
+
+    display:flex;
+    justify-content:center;
+    align-items:center;
+
+    background:rgba(0,0,0,0.45);
+
+    color:white;
+    font-size:120px;
+    font-weight:bold;
+
+    z-index:40;
+}
+
+#countdown-text{
+    animation: pop 1s infinite;
+}
+
+@keyframes pop{
+
+    0%{
+        transform:scale(0.5);
+    }
+
+    50%{
+        transform:scale(1.2);
+    }
+
+    100%{
+        transform:scale(1);
+    }
+
+}
+
+
 #game-over{
     display:none;
     position:absolute;
@@ -106,7 +148,12 @@ body{
 
     <div class="game-area" id="game-area">
 
-        {% block game_area %}{% endblock %}
+        <!-- カウントダウン画面 -->
+<div id="countdown-screen">
+    <div id="countdown-text">3</div>
+</div>
+
+{% block game_area %}{% endblock %}
 
         <!-- ゲーム終了画面 -->
         <div id="game-over">
@@ -121,21 +168,65 @@ body{
 
     </div>
 
-    <div class="character-area">
+    {# キャラクターエリア。ゲームによって上書きできるようにブロック化 #}
+{% block character_area %}
 
-        <img src="{% static character_image %}" id="character">
+<div class="character-area">
+    <img src="{% static character_image %}" id="character">
+</div>
 
-    </div>
+{% endblock %}
 
     <div class="button-area">
-
-        <a href="{% url 'home' %}">戻る</a>
-
-    </div>
+    <a href="{% url 'home' %}" id="back-button">戻る</a>
+</div>
 
 </div>
 
 {% block config %}{% endblock %}
+
+<script>
+
+let gameStarted = false;
+
+function startCountdown(callback){
+
+    const screen = document.getElementById("countdown-screen");
+    const text = document.getElementById("countdown-text");
+
+    let count = 3;
+
+    text.textContent = count;
+
+    const timer = setInterval(function(){
+
+        count--;
+
+        if(count > 0){
+
+            text.textContent = count;
+
+        }else if(count == 0){
+
+            text.textContent = "START!";
+
+        }else{
+
+            clearInterval(timer);
+
+            screen.style.display = "none";
+
+            gameStarted = true;
+
+            callback();
+
+        }
+
+    },1000);
+
+}
+
+</script>
 
 <script>
 {% block script %}{% endblock %}

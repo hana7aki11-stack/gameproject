@@ -707,9 +707,7 @@ pointer-events: none;
 
 <form method="GET">
 
-    <input type="hidden"
-           name="menu"
-           value="play">
+    <input type="hidden" name="menu" value="play">
 
     <div class="action-card">
 
@@ -731,14 +729,14 @@ pointer-events: none;
 
         <button class="sub-action-button"
                 type="submit"
-                name="action"
-                value="bike"
-                {% if remaining_time < 3 or game_end %}disabled{% endif %}>
-            サイクリング
+                name="menu"
+                value="ball_difficulty"
+                {% if remaining_time < 2 or game_end %}disabled{% endif %}>
+            ボールキャッチ
         </button>
 
         <div class="action-info">
-            <p>6時間</p>
+            <p>4時間</p>
         </div>
 
     </div>
@@ -748,13 +746,13 @@ pointer-events: none;
         <button class="sub-action-button"
                 type="submit"
                 name="menu"
-                value="ball_difficulty"
-                {% if remaining_time < 2 or game_end %}disabled{% endif %}>
-            ボールキャッチ
+                value="dodge_difficulty"
+                {% if remaining_time < 3 or game_end %}disabled{% endif %}>
+            障害物よけ
         </button>
 
         <div class="action-info">
-            <p>4時間</p>
+            <p>6時間</p>
         </div>
 
     </div>
@@ -807,6 +805,50 @@ pointer-events: none;
 
 {% endif %}
 
+
+<!-- 障害物よけ：難易度選択メニュー -->
+{% if menu == 'dodge_difficulty' %}
+
+<form method="GET">
+
+    <input type="hidden"
+           name="action"
+           value="dodge_minigame">
+
+    {% for level in difficulty_list %}
+
+    <div class="action-card">
+
+        {% if level.unlocked %}
+
+            <button class="sub-action-button"
+                    type="submit"
+                    name="difficulty"
+                    value="{{ level.key }}"
+                    {% if remaining_time < 3 or game_end %}disabled{% endif %}>
+                {{ level.label }}
+            </button>
+
+        {% else %}
+
+            <button class="sub-action-button" type="button" disabled>
+                {{ level.label }}
+            </button>
+
+        {% endif %}
+
+        <div class="action-info">
+            <p>6時間</p>
+        </div>
+
+    </div>
+
+    {% endfor %}
+
+</form>
+
+{% endif %}
+
 <!-- 好きなごはん選び：難易度選択メニュー -->
 {% if menu == 'food_difficulty' %}
 
@@ -849,6 +891,8 @@ pointer-events: none;
 </form>
 
 {% endif %}
+
+
 
     <br>
 

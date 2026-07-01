@@ -102,16 +102,19 @@ function moveBall(){
 
 }
 
-// 開始時に1回配置
-moveBall();
+let autoMoveTimer;
 
-// クリックしなくても一定間隔で自動的に動く
-let autoMoveTimer = setInterval(function () {
+startCountdown(function(){
+
     moveBall();
-}, spawnInterval);
 
-// 残り時間カウントダウン開始
-startTimer();
+    autoMoveTimer = setInterval(function(){
+        moveBall();
+    }, spawnInterval);
+
+    startTimer();
+
+});
 
 // スコアを難易度倍率分だけ加算
 function addScore() {
@@ -145,26 +148,28 @@ function startTimer() {
 
             ball.style.display = "none";
 
+            // 戻るボタンを無効化
+            document.getElementById("back-button").style.pointerEvents = "none";
+            document.getElementById("back-button").style.opacity = "0.4";
+
             document.getElementById("game-over").style.display = "flex";
             document.getElementById("final-score").textContent = Math.round(score);
 
-            // 5秒後にスコアと難易度を付けてホームへ戻る
             setTimeout(function () {
-
                 window.location.href =
                     "{% url 'home' %}?action=ball_game&score=" + Math.round(score) +
                     "&difficulty=" + difficulty;
-
             }, 5000);
-
         }
 
     }, 1000);
-
 }
 
-// ボールクリック時の処理
-ball.addEventListener("click", function () {
+// ボールクリック・タップ時の処理
+function handleBallHit(e) {
+
+    // touchstart の場合、デフォルト動作（スクロール等）を防ぐ
+    e.preventDefault();
 
     addScore();
     happyCharacter();
@@ -172,7 +177,12 @@ ball.addEventListener("click", function () {
     setTimeout(function () {
         moveBall();
     }, 150 / ballSpeed);
+}
 
-});
+// PC用（クリック）
+ball.addEventListener("click", handleBallHit);
+
+// スマホ用（タップ）
+ball.addEventListener("touchstart", handleBallHit);
 
 {% endblock %}

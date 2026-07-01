@@ -1,0 +1,1017 @@
+{% extends 'turn_based_game/game_base.html' %}
+{% load static %}
+
+{% block page_title %}
+障害物よけ
+{% endblock %}
+
+
+{# ====================================== #}
+{# ゲーム終了画面の表示内容              #}
+{# ====================================== #}
+
+{% block result_label %}
+
+スコア
+
+{% endblock %}
+
+
+{# ====================================== #}
+{# 障害物よけ専用CSS                     #}
+{# ====================================== #}
+
+{% block extra_style %}
+
+/* ==========================
+   プレイヤー
+========================== */
+
+#player{
+
+    position:absolute;
+
+    width:120px;
+
+    bottom:10px;
+
+    left:50%;
+
+    transform:translateX(-50%);
+
+    z-index:20;
+
+}
+
+
+/* ==========================
+   落下物共通
+========================== */
+
+.falling-object{
+
+    position:absolute;
+
+    top:-120px;
+
+    width:90px;
+
+    pointer-events:none;
+
+}
+
+
+/* ==========================
+   障害物
+========================== */
+
+.obstacle{
+
+    filter:
+
+    drop-shadow(0 0 5px rgba(0,0,0,.4));
+
+}
+
+
+/* ==========================
+   アイテム
+========================== */
+
+.item{
+
+    filter:
+
+    drop-shadow(0 0 8px gold);
+
+}
+
+/* ==========================
+   ライフ表示
+========================== */
+
+.lives{
+
+    color:#e53935;
+
+    letter-spacing:4px;
+
+    font-size:24px;
+
+    font-weight:bold;
+
+}
+
+
+/* ==========================
+   カウントダウン
+========================== */
+
+#countdown{
+
+    position:absolute;
+
+    top:50%;
+
+    left:50%;
+
+    transform:translate(-50%,-50%);
+
+    font-size:120px;
+
+    font-weight:bold;
+
+    color:white;
+
+    text-shadow:
+
+        0 0 10px black,
+
+        0 0 25px black;
+
+    z-index:100;
+
+}
+
+
+/* ==========================
+   得点エフェクト
+========================== */
+
+.score-effect{
+
+    position:absolute;
+
+    color:#ffeb3b;
+
+    font-size:36px;
+
+    font-weight:bold;
+
+    pointer-events:none;
+
+    animation:scoreUp .8s forwards;
+
+}
+
+
+/* ==========================
+   ダメージエフェクト
+========================== */
+
+.damage-effect{
+
+    position:absolute;
+
+    color:#f44336;
+
+    font-size:42px;
+
+    font-weight:bold;
+
+    pointer-events:none;
+
+    animation:damageUp .8s forwards;
+
+}
+
+
+/* ==========================
+   アニメーション
+========================== */
+
+@keyframes scoreUp{
+
+    0%{
+
+        opacity:1;
+
+        transform:translateY(0);
+
+    }
+
+    100%{
+
+        opacity:0;
+
+        transform:translateY(-50px);
+
+    }
+
+}
+
+
+@keyframes damageUp{
+
+    0%{
+
+        opacity:1;
+
+        transform:translateY(0);
+
+    }
+
+    100%{
+
+        opacity:0;
+
+        transform:translateY(-50px);
+
+    }
+
+}
+
+{% endblock %}
+
+{# ====================================== #}
+{# ステータスバー追加表示               #}
+{# ====================================== #}
+
+{% block status_extra %}
+
+<div>
+
+    ライフ：
+    <span id="lives" class="lives">
+
+        ❤❤❤
+
+    </span>
+
+</div>
+
+{% endblock %}
+
+
+{# ====================================== #}
+{# ゲームエリア                         #}
+{# ====================================== #}
+
+{% block game_area %}
+
+<!-- カウントダウン -->
+
+<div id="countdown">
+
+    3
+
+</div>
+
+
+<!-- プレイヤー -->
+
+<img
+
+    src="{% static character_image %}"
+
+    id="player"
+
+>
+
+
+<!-- 落下物を配置するコンテナ -->
+
+<div id="object-container">
+
+</div>
+
+
+<!-- エフェクト表示用 -->
+
+<div id="effect-container">
+
+</div>
+
+{% endblock %}
+
+
+{# ====================================== #}
+{# JavaScriptへ渡す設定値               #}
+{# ====================================== #}
+
+{% block config %}
+
+<div
+
+    id="game-config"
+
+    data-difficulty="{{ selected_difficulty }}"
+
+    data-fall-speed="{{ fall_speed }}"
+
+    data-spawn-interval="{{ spawn_interval }}"
+
+    data-time-limit="{{ time_limit }}"
+
+    data-score-multiplier="{{ score_multiplier }}"
+
+    data-max-obstacles="{{ max_obstacles }}"
+
+    style="display:none;"
+
+>
+
+</div>
+
+{% endblock %}
+
+
+{# ====================================== #}
+{# JavaScript                           #}
+{# ====================================== #}
+
+{% block script %}
+
+// -------------------------
+// 難易度の設定値を取得
+// -------------------------
+
+const config = document.getElementById("game-config");
+
+const difficulty = config.dataset.difficulty;
+
+const fallSpeed = parseFloat(config.dataset.fallSpeed);
+
+const spawnInterval = parseInt(config.dataset.spawnInterval);
+
+const timeLimit = parseInt(config.dataset.timeLimit);
+
+const scoreMultiplier = parseFloat(config.dataset.scoreMultiplier);
+
+const maxObstacles = parseInt(config.dataset.maxObstacles);
+
+
+// -------------------------
+// ゲーム内で使用する要素を取得
+// -------------------------
+
+const area = document.getElementById("game-area");
+
+const player = document.getElementById("player");
+
+const countdown = document.getElementById("countdown");
+
+const objectContainer =
+document.getElementById("object-container");
+
+const effectContainer =
+document.getElementById("effect-container");
+
+const scoreDisplay =
+document.getElementById("score");
+
+const timeDisplay =
+document.getElementById("time");
+
+const livesDisplay =
+document.getElementById("lives");
+
+
+// -------------------------
+// キャラクター画像
+// -------------------------
+
+const normalImage =
+"{% static character_image %}";
+
+const happyImage =
+"{% static character_happy_image %}";
+
+
+// -------------------------
+// 初期ステータス
+// -------------------------
+
+let score = 0;
+
+let lives = 3;
+
+let timeLeft = timeLimit;
+
+scoreDisplay.textContent = score;
+
+timeDisplay.textContent = timeLeft;
+
+livesDisplay.textContent = "❤❤❤";
+
+
+// -------------------------
+// プレイヤー位置
+// -------------------------
+
+let playerX =
+(area.clientWidth - player.offsetWidth) / 2;
+
+const MOVE_SPEED = 14;
+
+
+// -------------------------
+// キー入力管理
+// -------------------------
+
+let leftPressed = false;
+
+let rightPressed = false;
+
+
+// -------------------------
+// 障害物画像一覧
+// -------------------------
+
+const obstacleImages = [
+
+    "{% static 'images/stone.png' %}",
+
+    "{% static 'images/tree.png' %}",
+
+    "{% static 'images/puddle.png' %}"
+
+];
+
+
+// -------------------------
+// アイテム画像一覧
+// -------------------------
+
+const itemImages = [
+
+    "{% static 'images/flower.png' %}",
+
+    "{% static 'images/ball.png' %}",
+
+    "{% static 'images/star.png' %}"
+
+];
+
+
+// -------------------------
+// ゲーム開始フラグ
+// -------------------------
+
+let gameStarted = false;
+
+let gameEnded = false;
+
+// -------------------------
+// キーボード入力
+// -------------------------
+
+document.addEventListener("keydown", function(event){
+
+    if(event.key === "ArrowLeft"){
+
+        leftPressed = true;
+
+    }
+
+    if(event.key === "ArrowRight"){
+
+        rightPressed = true;
+
+    }
+
+});
+
+
+document.addEventListener("keyup", function(event){
+
+    if(event.key === "ArrowLeft"){
+
+        leftPressed = false;
+
+    }
+
+    if(event.key === "ArrowRight"){
+
+        rightPressed = false;
+
+    }
+
+});
+
+
+// -------------------------
+// プレイヤーを移動する
+// -------------------------
+
+function movePlayer(){
+
+    if(gameEnded){
+
+        return;
+
+    }
+
+    if(leftPressed){
+
+        playerX -= MOVE_SPEED;
+
+    }
+
+    if(rightPressed){
+
+        playerX += MOVE_SPEED;
+
+    }
+
+    // 左端・右端を超えないようにする
+    if(playerX < 0){
+
+        playerX = 0;
+
+    }
+
+    const maxX =
+    area.clientWidth - player.offsetWidth;
+
+    if(playerX > maxX){
+
+        playerX = maxX;
+
+    }
+
+    player.style.left = playerX + "px";
+
+    requestAnimationFrame(movePlayer);
+
+}
+
+
+// -------------------------
+// カウントダウン開始
+// -------------------------
+
+function startCountdown(){
+
+    let count = 3;
+
+    countdown.textContent = count;
+
+    const timer = setInterval(function(){
+
+        count--;
+
+        if(count > 0){
+
+            countdown.textContent = count;
+
+        }
+
+        else if(count === 0){
+
+            countdown.textContent = "GO!";
+
+        }
+
+        else{
+
+            clearInterval(timer);
+
+            countdown.style.display = "none";
+
+            startGame();
+
+        }
+
+    },1000);
+
+}
+
+
+// -------------------------
+// ゲーム開始
+// -------------------------
+
+function startGame(){
+
+    gameStarted = true;
+
+    // プレイヤー移動開始
+    requestAnimationFrame(movePlayer);
+
+    // オブジェクト生成開始
+    spawnTimer = setInterval(function(){
+
+        createObject();
+
+    },spawnInterval);
+
+    // 制限時間開始
+    startTimer();
+
+}
+
+
+// -------------------------
+// ゲーム開始
+// -------------------------
+
+startCountdown();
+
+// -------------------------
+// 落下物を生成する
+// -------------------------
+
+function createObject(){
+
+    if(gameEnded){
+
+        return;
+
+    }
+
+    // -------------------------
+    // 障害物かアイテムかを決定
+    // -------------------------
+
+    const isObstacle = Math.random() < 0.6;
+
+    const img = document.createElement("img");
+
+    img.classList.add("falling-object");
+
+    if(isObstacle){
+
+        img.classList.add("obstacle");
+
+        img.src =
+        obstacleImages[
+            Math.floor(Math.random() * obstacleImages.length)
+        ];
+
+        img.dataset.type = "obstacle";
+
+    }
+
+    else{
+
+        img.classList.add("item");
+
+        img.src =
+        itemImages[
+            Math.floor(Math.random() * itemImages.length)
+        ];
+
+        img.dataset.type = "item";
+
+    }
+
+
+    // -------------------------
+    // ランダムな横位置
+    // -------------------------
+
+    const maxX =
+    area.clientWidth - 90;
+
+    const startX =
+    Math.random() * maxX;
+
+    img.style.left = startX + "px";
+
+    img.style.top = "-100px";
+
+
+    objectContainer.appendChild(img);
+
+
+    // -------------------------
+    // 落下開始
+    // -------------------------
+
+    fallObject(img);
+
+}
+
+
+// -------------------------
+// 落下処理
+// -------------------------
+
+function fallObject(img){
+
+    let y = -100;
+
+    const speed =
+    4 * fallSpeed;
+
+    const timer =
+    setInterval(function(){
+
+        if(gameEnded){
+
+            clearInterval(timer);
+
+            img.remove();
+
+            return;
+
+        }
+
+        y += speed;
+
+        img.style.top = y + "px";
+
+        // -------------------------
+        // プレイヤーとの当たり判定
+        // -------------------------
+
+        const playerRect = player.getBoundingClientRect();
+
+        const objectRect = img.getBoundingClientRect();
+
+        const hit = !(
+            playerRect.right < objectRect.left ||
+            playerRect.left > objectRect.right ||
+            playerRect.bottom < objectRect.top ||
+            playerRect.top > objectRect.bottom
+        );
+
+        if(hit){
+
+            clearInterval(timer);
+
+            img.remove();
+
+            // -------------------------
+            // 障害物に当たった
+            // -------------------------
+
+            if(img.dataset.type === "obstacle"){
+
+                lives--;
+
+                if(lives < 0){
+
+                    lives = 0;
+
+                }
+
+                livesDisplay.textContent =
+                    "❤".repeat(lives) +
+                    "🖤".repeat(3 - lives);
+
+                showEffect("💥");
+
+                if(lives <= 0){
+
+                    endGame();
+
+                }
+
+            }
+
+            // -------------------------
+            // アイテムを取った
+            // -------------------------
+
+            else{
+
+                score += scoreMultiplier;
+
+                scoreDisplay.textContent =
+                    Math.round(score);
+
+                happyCharacter();
+
+                showEffect("⭐");
+
+            }
+
+            return;
+
+        }
+
+
+        // -------------------------
+        // 画面外へ出た
+        // -------------------------
+
+        if(y > area.clientHeight){
+
+            clearInterval(timer);
+
+            img.remove();
+
+            return;
+
+        }
+
+    },16);
+
+}
+
+
+// -------------------------
+// キャラクターをHappy画像にする
+// -------------------------
+
+function happyCharacter(){
+
+    player.src = happyImage;
+
+    setTimeout(function(){
+
+        player.src = normalImage;
+
+    },400);
+
+}
+
+
+// -------------------------
+// エフェクト表示
+// -------------------------
+
+function showEffect(text){
+
+    const effect = document.createElement("div");
+
+    effect.textContent = text;
+
+    effect.style.position = "absolute";
+
+    effect.style.left = (playerX + 70) + "px";
+
+    effect.style.bottom = "170px";
+
+    effect.style.fontSize = "42px";
+
+    effect.style.fontWeight = "bold";
+
+    effect.style.animation = "effectPop 0.8s";
+
+    effectContainer.appendChild(effect);
+
+    setTimeout(function(){
+
+        effect.remove();
+
+    },800);
+
+}
+
+// -------------------------
+// 制限時間を開始する
+// -------------------------
+
+function startTimer(){
+
+    const timer = setInterval(function(){
+
+        if(gameEnded){
+
+            clearInterval(timer);
+
+            return;
+
+        }
+
+        timeLeft--;
+
+        timeDisplay.textContent = timeLeft;
+
+        if(timeLeft <= 0){
+
+            clearInterval(timer);
+
+            endGame();
+
+        }
+
+    },1000);
+
+}
+
+
+// -------------------------
+// ゲーム終了処理
+// -------------------------
+
+function endGame(){
+
+    if(gameEnded){
+
+        return;
+
+    }
+
+    gameEnded = true;
+
+
+    // -------------------------
+    // 出現タイマー停止
+    // -------------------------
+
+    clearInterval(spawnTimer);
+
+
+    // -------------------------
+    // 残っている落下物を削除
+    // -------------------------
+
+    document
+        .querySelectorAll(".falling-object")
+        .forEach(function(obj){
+
+            obj.remove();
+
+        });
+
+
+    // -------------------------
+    // ゲーム終了画面を表示
+    // -------------------------
+
+    document
+        .getElementById("game-over")
+        .style.display = "flex";
+
+
+    // -------------------------
+    // 最終スコア表示
+    // -------------------------
+
+    document
+        .getElementById("final-score")
+        .textContent =
+        Math.round(score);
+
+
+    // -------------------------
+    // 3秒後にホームへ戻る
+    // -------------------------
+
+    setTimeout(function(){
+
+        window.location.href =
+            "{% url 'home' %}" +
+            "?action=avoid_result" +
+            "&score=" +
+            Math.round(score) +
+            "&difficulty=" +
+            difficulty;
+
+    },3000);
+
+}
+
+// -------------------------
+// オブジェクト生成タイマー
+// -------------------------
+
+let spawnTimer = null;
+
+
+// -------------------------
+// プレイヤーの初期位置を設定
+// -------------------------
+
+player.style.left = playerX + "px";
+
+
+// -------------------------
+// エフェクトアニメーションを追加
+// -------------------------
+
+const style = document.createElement("style");
+
+style.textContent = `
+@keyframes effectPop{
+
+    0%{
+        transform:translateY(0px);
+        opacity:1;
+    }
+
+    100%{
+        transform:translateY(-50px);
+        opacity:0;
+    }
+
+}
+`;
+
+document.head.appendChild(style);
+
+
+// -------------------------
+// 初期表示
+// -------------------------
+
+scoreDisplay.textContent = "0";
+
+timeDisplay.textContent = timeLimit;
+
+livesDisplay.textContent = "❤❤❤";
+
+player.src = normalImage;
+
+
+// -------------------------
+// ゲーム開始
+// -------------------------
+
+startCountdown();
+
+{% endblock %}
