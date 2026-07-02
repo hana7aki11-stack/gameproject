@@ -713,10 +713,10 @@ pointer-events: none;
 
         <button class="sub-action-button"
                 type="submit"
-                name="action"
-                value="toy"
+                name="menu"
+                value="dance_difficulty"
                 {% if remaining_time < 1 or game_end %}disabled{% endif %}>
-            おもちゃ
+            ダンスまね
         </button>
 
         <div class="action-info">
@@ -760,6 +760,52 @@ pointer-events: none;
 </form>
 
 {% endif %}
+
+
+
+<!-- ダンスまね：難易度選択メニュー -->
+{% if menu == 'dance_difficulty' %}
+
+<form method="GET">
+
+    <input type="hidden"
+           name="action"
+           value="dance_minigame">
+
+    {% for level in difficulty_list %}
+
+    <div class="action-card">
+
+        {% if level.unlocked %}
+
+            <button class="sub-action-button"
+                    type="submit"
+                    name="difficulty"
+                    value="{{ level.key }}"
+                    {% if remaining_time < 1 or game_end %}disabled{% endif %}>
+                {{ level.label }}
+            </button>
+
+        {% else %}
+
+            <button class="sub-action-button" type="button" disabled>
+                {{ level.label }}
+            </button>
+
+        {% endif %}
+
+        <div class="action-info">
+            <p>2時間</p>
+        </div>
+
+    </div>
+
+    {% endfor %}
+
+</form>
+
+{% endif %}
+
 
 
 <!-- ボールキャッチ：難易度選択メニュー -->
@@ -848,6 +894,8 @@ pointer-events: none;
 </form>
 
 {% endif %}
+
+
 
 <!-- 好きなごはん選び：難易度選択メニュー -->
 {% if menu == 'food_difficulty' %}

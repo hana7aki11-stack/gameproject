@@ -183,6 +183,7 @@ def home(request):
         'rest': 2,
         'food_minigame': 1,
         'dodge_minigame':3,
+        'dance_minigame': 1,
     }
 
     # 行動可能か判定
@@ -478,6 +479,46 @@ def home(request):
 
         request.session["event_message"] = event_message
 
+    # -------------------------
+    # ダンスまね 終了
+    # -------------------------
+
+    if action == "dance_result":
+
+        result = request.GET.get("result", "fail")
+
+        play_count += 1
+
+        # おもちゃ基準（satisfaction+10, energy-5, fullness-5, growth+2）を参考に
+        # 全問正解・途中失敗・難易度で段階的に変動させる
+        difficulty_bonus = {
+            'easy': {'growth': 1, 'satisfaction': 8},
+            'normal': {'growth': 2, 'satisfaction': 12},
+            'hard': {'growth': 3, 'satisfaction': 16},
+            'oni': {'growth': 4, 'satisfaction': 20},
+        }
+
+        diff = request.GET.get("difficulty", "easy")
+        bonus = difficulty_bonus.get(diff, difficulty_bonus['easy'])
+
+        if result == "clear":
+            # 全問正解
+            satisfaction += bonus['satisfaction']
+            energy -= 5
+            fullness -= 5
+            growth += bonus['growth']
+            event_message = "完璧なダンス！"
+
+        else:
+            # 途中で失敗
+            satisfaction += bonus['satisfaction'] // 2
+            energy -= 5
+            fullness -= 5
+            growth += max(1, bonus['growth'] - 1)
+            event_message = "惜しかった！また挑戦しよう！"
+
+        request.session["event_message"] = event_message
+
 
 
     # ゲーム終了判定
@@ -493,6 +534,7 @@ def home(request):
         'rest': 2,
         'food_minigame': 1,
         'dodge_minigame': 3,
+        'dance_minigame': 1,
     }
 
     # 行動可能か判定
@@ -816,18 +858,27 @@ def home(request):
 
 
 
-    elif action == 'toy' and can_act:
 
-        play_count += 1
+    elif action == "dance_minigame" and can_act:
 
-        satisfaction += 10
-        energy -= 5
-        fullness -= 5
-        growth += 2
+        difficulty = request.GET.get("difficulty", "easy")
 
-        remaining_time -= 1
+        unlocked_keys = [
 
-        reaction_state = "normal_play"
+            d['key'] for d in difficulty_list if d['unlocked']
+
+        ]
+
+        if difficulty not in unlocked_keys:
+            difficulty = "easy"
+
+        remaining_time -= action_cost['dance_minigame']
+
+        request.session["remaining_time"] = remaining_time
+
+        query = urlencode({"difficulty": difficulty})
+
+        return redirect(f"{reverse('dance_game')}?{query}")
 
 
 
@@ -1706,5 +1757,69 @@ def dodge_game(request):
     return render(
         request,
         "turn_based_game/dodge_game.html",
+        status
+    )
+
+
+
+
+def dance_game(request):
+
+    # 成長度を取得
+    growth = request.session["growth"]
+
+    # 成長段階を判定
+    if growth < 20:
+        growth_stage = 0
+    elif growth < 40:
+        growth_stage = 1
+    elif growth < 80:
+        growth_stage = 2
+    elif growth < 100:
+        growth_stage = 3
+    else:
+        growth_stage = 4
+
+    # 難易度の解放状況を取得
+    difficulty_list = get_difficulty_list(growth_stage)
+
+    selected_difficulty = request.GET.get('difficulty', 'easy')
+    unlocked_keys = [d['key'] for d in difficulty_list if d['unlocked']]
+
+    if selected_difficulty not in unlocked_keys:
+        selected_difficulty = 'easy'
+
+
+    DANCE_DIFFICULTY_SETTINGS = {
+        'easy':   {'sequence_length': 3,  'show_seconds': 4},
+        'normal': {'sequence_length': 5,  'show_seconds': 4},
+        'hard':   {'sequence_length': 7,  'show_seconds': 5},
+        'oni':    {'sequence_length': 10, 'show_seconds': 5},
+    }
+
+
+    current_settings = DANCE_DIFFICULTY_SETTINGS[selected_difficulty]
+
+    character_image = f"images/character{growth_stage}.png"
+    character_happy_image = f"images/character{growth_stage}-happy.png"
+    character_damage_image = f"images/character{growth_stage}-tired.png"
+    background_image = "images/morning.png"
+
+    status = {
+        "growth_stage": growth_stage,
+        "character_image": character_image,
+        "character_happy_image": character_happy_image,
+        "character_damage_image": character_damage_image,
+        "background_image": background_image,
+        "game_title": "ダンスまね",
+
+        "selected_difficulty": selected_difficulty,
+        "sequence_length": current_settings['sequence_length'],
+        "show_seconds": current_settings['show_seconds'],  # 追加
+    }
+
+    return render(
+        request,
+        "turn_based_game/dance_game.html",
         status
     )

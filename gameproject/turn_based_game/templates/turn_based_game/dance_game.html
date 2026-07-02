@@ -1,0 +1,410 @@
+{% extends 'turn_based_game/game_base.html' %}
+{% load static %}
+
+{% block page_title %}ダンスまね{% endblock %}
+{# ブラウザのタブに表示されるタイトル #}
+
+{% block result_label %}結果{% endblock %}
+
+
+{% block extra_style %}
+{# ダンスまね専用のCSS #}
+
+/* お題が隠れた時の矢印 */
+.arrow-icon.hidden {
+    color: transparent;        /* 文字を透明にする */
+    background: rgba(180,180,180,0.4);
+    border-color: #bbb;
+}
+
+/* 表示カウントダウン */
+#show-timer {
+    font-size: 18px;
+    color: #666;
+    min-height: 24px;
+    margin-bottom: 4px;
+}
+
+/* お題の矢印を表示するエリア */
+#sequence-display {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    padding: 10px;
+    min-height: 80px;
+}
+
+/* お題の矢印1つ */
+.arrow-icon {
+    font-size: 48px;
+    width: 60px;
+    height: 60px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border-radius: 10px;
+    background: rgba(255,255,255,0.6);
+    border: 2px solid #ccc;
+    transition: background 0.2s;
+}
+
+/* 正解した矢印 */
+.arrow-icon.correct {
+    background: #c8e6c9;
+    border-color: #4caf50;
+}
+
+/* 不正解の矢印 */
+.arrow-icon.wrong {
+    background: #ffcdd2;
+    border-color: #e53935;
+}
+
+/* 現在入力待ちの矢印（ハイライト） */
+.arrow-icon.current {
+    background: #fff9c4;
+    border-color: #fbc02d;
+    transform: scale(1.15);
+}
+
+/* 入力ボタンエリア */
+.arrow-buttons {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+    margin-top: 10px;
+    flex-wrap: wrap;
+}
+
+/* 方向ボタン */
+.arrow-button {
+    font-size: 36px;
+    width: 80px;
+    height: 80px;
+    border-radius: 15px;
+    border: 2px solid #ccc;
+    background: rgba(255,255,255,0.7);
+    cursor: pointer;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: manipulation;
+}
+
+.arrow-button:active {
+    background: rgba(200,200,200,0.7);
+}
+
+/* メッセージ表示 */
+#game-message {
+    font-size: 22px;
+    font-weight: bold;
+    min-height: 30px;
+    margin-top: 5px;
+}
+
+{% endblock %}
+
+
+{% block status_extra %}
+{# 進行状況を表示 #}
+<div>進捗：<span id="progress">0</span> / <span id="total"></span></div>
+{% endblock %}
+
+
+{% block game_area %}
+
+{# 「あと○秒で隠れます」の表示 #}
+<div id="show-timer"></div>
+
+{# お題の矢印を表示するエリア #}
+<div id="sequence-display"></div>
+
+{# メッセージ表示 #}
+<div id="game-message"></div>
+
+{% endblock %}
+
+
+{% block character_area %}
+{# キャラクター + 入力ボタン #}
+<div style="text-align:center; margin-top:10px;">
+
+    <img src="{% static character_image %}" id="character" style="height:150px;">
+
+    {# 方向入力ボタン（スマホ・PC共通） #}
+    <div class="arrow-buttons">
+        <button class="arrow-button" data-dir="left">←</button>
+        <button class="arrow-button" data-dir="up">↑</button>
+        <button class="arrow-button" data-dir="down">↓</button>
+        <button class="arrow-button" data-dir="right">→</button>
+    </div>
+
+</div>
+{% endblock %}
+
+
+{% block config %}
+<div id="game-config"
+     data-difficulty="{{ selected_difficulty }}"
+     data-sequence-length="{{ sequence_length }}"
+     data-show-seconds="{{ show_seconds }}"
+     data-happy-image="{% static character_happy_image %}"
+     data-damage-image="{% static character_damage_image %}"
+     style="display:none;">
+</div>
+{% endblock %}
+
+
+{% block script %}
+
+// 設定値を取得
+const config = document.getElementById("game-config");
+
+const difficulty = config.dataset.difficulty;
+const sequenceLength = parseInt(config.dataset.sequenceLength);
+const showSeconds = parseInt(config.dataset.showSeconds);  // お題を見せる時間
+const happyImage = config.dataset.happyImage;
+const damageImage = config.dataset.damageImage;
+
+const character = document.getElementById("character");
+const normalImage = "{% static character_image %}";
+
+const sequenceDisplay = document.getElementById("sequence-display");
+const gameMessage = document.getElementById("game-message");
+const progressDisplay = document.getElementById("progress");
+const totalDisplay = document.getElementById("total");
+const showTimer = document.getElementById("show-timer");
+
+totalDisplay.textContent = sequenceLength;
+
+// -------------------------
+// 矢印の定義
+// -------------------------
+
+const ARROWS = [
+    { dir: "left",  symbol: "←" },
+    { dir: "up",    symbol: "↑" },
+    { dir: "down",  symbol: "↓" },
+    { dir: "right", symbol: "→" },
+];
+
+// -------------------------
+// お題をランダムに生成
+// -------------------------
+
+const sequence = [];
+
+for (let i = 0; i < sequenceLength; i++) {
+    sequence.push(ARROWS[Math.floor(Math.random() * ARROWS.length)]);
+}
+
+// -------------------------
+// お題を画面に表示
+// -------------------------
+
+const arrowElements = [];
+
+sequence.forEach(function (arrow) {
+
+    const el = document.createElement("div");
+    el.className = "arrow-icon";
+    el.textContent = arrow.symbol;
+
+    sequenceDisplay.appendChild(el);
+    arrowElements.push(el);
+});
+
+// -------------------------
+// 入力状態の管理
+// -------------------------
+
+let currentIndex = 0;
+let gameEnded = false;
+
+// -------------------------
+// キャラクター画像の切り替え
+// -------------------------
+
+function showHappyCharacter() {
+    character.src = happyImage;
+    setTimeout(function () { character.src = normalImage; }, 400);
+}
+
+function showDamageCharacter() {
+    character.src = damageImage;
+    setTimeout(function () { character.src = normalImage; }, 400);
+}
+
+// -------------------------
+// 入力処理
+// -------------------------
+
+function handleInput(dir) {
+
+    if (gameEnded) return;
+
+    const expected = sequence[currentIndex];
+
+    if (dir === expected.dir) {
+
+        // 正解：入力した番号の矢印だけ正解色にする
+        arrowElements[currentIndex].classList.remove("hidden");
+        arrowElements[currentIndex].classList.add("correct");
+
+        showHappyCharacter();
+        gameMessage.textContent = "✓ 正解！";
+        gameMessage.style.color = "#4caf50";
+
+        currentIndex++;
+        progressDisplay.textContent = currentIndex;
+
+        if (currentIndex >= sequenceLength) {
+
+            endGame("clear");
+
+        } else {
+
+            // 次の矢印も隠したままにする（正解したものだけ見える）
+            arrowElements[currentIndex].classList.add("current");
+        }
+
+    } else {
+
+        // 不正解：間違えた箇所を赤にして正解も見せる
+        arrowElements[currentIndex].classList.remove("hidden", "current");
+        arrowElements[currentIndex].classList.add("wrong");
+
+        // 残りの隠れている矢印も正解を表示する
+        for (let i = currentIndex + 1; i < sequenceLength; i++) {
+            arrowElements[i].classList.remove("hidden");
+        }
+
+        showDamageCharacter();
+        gameMessage.textContent = "✗ 失敗…";
+        gameMessage.style.color = "#e53935";
+
+        setTimeout(function () {
+            endGame("fail");
+        }, 800);
+    }
+}
+
+// -------------------------
+// キーボード入力
+// -------------------------
+
+document.addEventListener("keydown", function (e) {
+
+    if (gameEnded) return;
+
+    const keyMap = {
+        "ArrowLeft":  "left",
+        "ArrowUp":    "up",
+        "ArrowDown":  "down",
+        "ArrowRight": "right",
+    };
+
+    if (keyMap[e.key]) {
+        e.preventDefault();
+        handleInput(keyMap[e.key]);
+    }
+});
+
+// -------------------------
+// ボタン入力（スマホ・PC共通）
+// -------------------------
+
+document.querySelectorAll(".arrow-button").forEach(function (btn) {
+
+    btn.addEventListener("touchstart", function (e) {
+        e.preventDefault();
+        handleInput(btn.dataset.dir);
+    });
+
+    btn.addEventListener("click", function () {
+        handleInput(btn.dataset.dir);
+    });
+});
+
+// -------------------------
+// ゲーム終了処理
+// -------------------------
+
+function endGame(result) {
+
+    if (gameEnded) return;
+    gameEnded = true;
+
+    document.getElementById("back-button").style.pointerEvents = "none";
+    document.getElementById("back-button").style.opacity = "0.4";
+
+    document.querySelectorAll(".arrow-button").forEach(function (btn) {
+        btn.disabled = true;
+    });
+
+    document.getElementById("game-over").style.display = "flex";
+    document.getElementById("final-score").textContent =
+        result === "clear" ? "クリア！" : "もう少し！";
+
+    setTimeout(function () {
+        window.location.href =
+            "{% url 'home' %}?action=dance_result&result=" + result +
+            "&difficulty=" + difficulty;
+    }, 3000);
+}
+
+// -------------------------
+// ゲームの流れ
+// -------------------------
+
+// カウントダウン中はボタンを無効化
+document.querySelectorAll(".arrow-button").forEach(function (btn) {
+    btn.disabled = true;
+});
+
+startCountdown(function () {
+
+    // カウントダウン終了：お題を表示し、残り時間をカウントダウン
+    showTimer.textContent = `${showSeconds}秒後に隠れます`;
+    gameMessage.textContent = "覚えてください！";
+    gameMessage.style.color = "#333";
+
+    let remaining = showSeconds;
+
+    const hideTimer = setInterval(function () {
+
+        remaining--;
+
+        if (remaining > 0) {
+
+            showTimer.textContent = `${remaining}秒後に隠れます`;
+
+        } else {
+
+            clearInterval(hideTimer);
+
+            // お題を隠す
+            arrowElements.forEach(function (el) {
+                el.classList.add("hidden");
+            });
+
+            showTimer.textContent = "";
+            gameMessage.textContent = "入力してください！";
+            gameMessage.style.color = "#333";
+
+            // 最初の矢印をハイライト
+            arrowElements[0].classList.add("current");
+
+            // 入力ボタンを有効化
+            document.querySelectorAll(".arrow-button").forEach(function (btn) {
+                btn.disabled = false;
+            });
+        }
+
+    }, 1000);
+});
+
+{% endblock %}

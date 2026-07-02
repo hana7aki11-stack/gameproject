@@ -421,16 +421,7 @@ function spawnObject() {
 // ゲームループ（毎フレームキャラ位置を更新）
 // -------------------------
 
-let gameLoopRunning = false;
-
-function gameLoop() {
-
-    if (!gameLoopRunning) return;
-
-    updatePlayerPosition();
-
-    requestAnimationFrame(gameLoop);
-}
+let moveTimer = null;  // キャラ移動用タイマー
 
 // -------------------------
 // ゲーム終了処理
@@ -439,55 +430,45 @@ function gameLoop() {
 let gameEnded = false;
 let spawnTimer = null;
 let countTimer = null;
-
 function endGame() {
 
     if (gameEnded) return;
     gameEnded = true;
-    gameLoopRunning = false;
 
-　　　// 戻るボタンを無効化
-    document.getElementById("back-button").style.pointerEvents = "none";
-    document.getElementById("back-button").style.opacity = "0.4";
-
+    // 追加
+    clearInterval(moveTimer);
 
     clearInterval(spawnTimer);
     clearInterval(countTimer);
 
     document.querySelectorAll(".fall-object").forEach(el => el.remove());
 
-    // 残りライフを❤で表示
     const finalLives = Math.max(lives, 0);
 
     document.getElementById("game-over").style.display = "flex";
     document.getElementById("final-score").textContent = "❤".repeat(finalLives);
 
-    // 残りライフとスコア（アイテム取得数）を両方送る
     setTimeout(function () {
-
         window.location.href =
             "{% url 'home' %}?action=dodge_result&lives=" + finalLives +
             "&score=" + score +
             "&difficulty=" + difficulty;
-
     }, 5000);
 }
 
 // -------------------------
 // ゲーム本体の開始処理（カウントダウン終了後に呼ばれる）
 // -------------------------
-
 function startDodgeGame() {
 
-    // ゲームループ開始（キャラ移動の更新）
-    gameLoopRunning = true;
-    gameLoop();
+    // 16ms（約60fps）ごとにキャラクターの位置を更新する
+    moveTimer = setInterval(function () {
+        updatePlayerPosition();
+    }, 16);
 
-    // obstacleCountが多いほど頻繁にオブジェクトが出現する
     const spawnInterval = Math.max(400, 1200 / obstacleCount);
     spawnTimer = setInterval(spawnObject, spawnInterval);
 
-    // 制限時間カウントダウン
     countTimer = setInterval(function () {
 
         timeLeft--;

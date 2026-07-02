@@ -7,5 +7,6 @@ urlpatterns = [
     path('signup/', views.signup, name='signup'),
     path('ball_game/', views.ball_game, name='ball_game'),
     path('food_game/', views.food_game, name='food_game'),
-    path('dodge_game/', views.dodge_game, name='dodge_game'),  # 追加
+    path('dodge_game/', views.dodge_game, name='dodge_game'),
+    path('dance_game/', views.dance_game, name='dance_game'),  # 追加
 ]
