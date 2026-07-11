@@ -1,0 +1,364 @@
+{% extends 'turn_based_game/game_base.html' %}
+{% load static %}
+
+{% block page_title %}食材かぞえ{% endblock %}
+{# ブラウザのタブに表示されるタイトル #}
+
+{% block result_label %}残りライフ{% endblock %}
+
+
+{% block extra_style %}
+{# 食材かぞえ専用のCSS #}
+
+/* 食材を表示するエリア */
+#food-display {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    padding: 10px;
+    min-height: 120px;
+    font-size: 36px;
+}
+
+/* 数字入力ボタンエリア */
+#number-buttons {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+/* 数字ボタン */
+.num-button {
+    font-size: 22px;
+    width: 60px;
+    height: 60px;
+    border-radius: 10px;
+    border: 2px solid #ccc;
+    background: rgba(255,255,255,0.7);
+    cursor: pointer;
+    touch-action: manipulation;
+    user-select: none;
+}
+
+.num-button:active {
+    background: #c8e6c9;
+}
+
+.num-button:disabled {
+    background: #eee;
+    color: #aaa;
+    cursor: not-allowed;
+}
+
+/* 問題文 */
+#question-text {
+    font-size: 20px;
+    font-weight: bold;
+    color: #333;
+    margin-top: 5px;
+    min-height: 28px;
+}
+
+/* 結果メッセージ */
+#round-message {
+    font-size: 20px;
+    font-weight: bold;
+    min-height: 28px;
+    margin-top: 4px;
+}
+
+/* ライフ表示 */
+#lives {
+    color: #e53935;
+    letter-spacing: 4px;
+}
+
+{% endblock %}
+
+
+{% block status_extra %}
+{# ライフと進捗を表示 #}
+<div>ライフ：<span id="lives">❤❤❤</span></div>
+<div>進捗：<span id="progress">0</span> / <span id="total"></span></div>
+{% endblock %}
+
+
+{% block game_area %}
+{# 問題文・食材表示エリア・数字ボタン #}
+
+<div id="question-text"></div>
+
+<div id="food-display"></div>
+
+<div id="round-message"></div>
+
+<div id="number-buttons">
+    {% for n in "0123456789" %}
+        <button class="num-button" data-num="{{ n }}">{{ n }}</button>
+    {% endfor %}
+</div>
+
+{% endblock %}
+
+
+{% block config %}
+{# 設定値とfood_emojisをJSに渡す（非表示） #}
+<div id="game-config"
+     data-difficulty="{{ selected_difficulty }}"
+     data-round-count="{{ round_count }}"
+     data-display-time="{{ display_time }}"
+     data-item-count="{{ item_count }}"
+     data-type-count="{{ type_count }}"
+     data-happy-image="{% static character_happy_image %}"
+     data-damage-image="{% static character_damage_image %}"
+     style="display:none;">
+</div>
+
+<div id="food-emoji-list" style="display:none;">
+    {% for emoji in food_emojis %}
+        <span class="food-emoji-src">{{ emoji }}</span>
+    {% endfor %}
+</div>
+
+{% endblock %}
+
+
+{% block script %}
+
+// 設定値を取得
+const config = document.getElementById("game-config");
+
+const difficulty = config.dataset.difficulty;
+const roundCount = parseInt(config.dataset.roundCount);
+const displayTime = parseInt(config.dataset.displayTime);
+const itemCount = parseInt(config.dataset.itemCount);
+const typeCount = parseInt(config.dataset.typeCount);
+const happyImage = config.dataset.happyImage;
+const damageImage = config.dataset.damageImage;
+
+// 食材絵文字の一覧を取得
+const foodEmojiElements = document.querySelectorAll(".food-emoji-src");
+const allEmojis = Array.from(foodEmojiElements).map(el => el.textContent.trim());
+
+// キャラクター画像
+const character = document.getElementById("character");
+const normalImage = "{% static character_image %}";
+
+// 表示要素を取得
+const foodDisplay = document.getElementById("food-display");
+const questionText = document.getElementById("question-text");
+const roundMessage = document.getElementById("round-message");
+const progressDisplay = document.getElementById("progress");
+const totalDisplay = document.getElementById("total");
+const livesDisplay = document.getElementById("lives");
+
+totalDisplay.textContent = roundCount;
+
+// -------------------------
+// ゲーム状態の管理
+// -------------------------
+
+let lives = 3;
+let currentRound = 0;
+let correctAnswer = 0;
+let gameEnded = false;
+let buttonsEnabled = false;
+
+// -------------------------
+// キャラクター画像の切り替え
+// -------------------------
+
+function showHappyCharacter() {
+    character.src = happyImage;
+    setTimeout(function () { character.src = normalImage; }, 400);
+}
+
+function showDamageCharacter() {
+    character.src = damageImage;
+    setTimeout(function () { character.src = normalImage; }, 400);
+}
+
+// -------------------------
+// 数字ボタンの有効・無効を切り替え
+// -------------------------
+
+function setButtonsEnabled(enabled) {
+
+    buttonsEnabled = enabled;
+
+    document.querySelectorAll(".num-button").forEach(function (btn) {
+        btn.disabled = !enabled;
+    });
+}
+
+// -------------------------
+// 1ラウンドの準備
+// -------------------------
+
+function setupRound() {
+
+    if (gameEnded) return;
+
+    setButtonsEnabled(false);
+    roundMessage.textContent = "";
+    foodDisplay.textContent = "";
+
+    // 今回使う食材の種類をランダムに選ぶ
+    const shuffled = allEmojis.slice().sort(function () { return Math.random() - 0.5; });
+    const usedEmojis = shuffled.slice(0, typeCount);
+
+    // 数える対象の食材をランダムに選ぶ
+    const targetEmoji = usedEmojis[0];
+
+    // 食材をランダムに並べる（targetEmojiが何個含まれるかを記録）
+    const items = [];
+    let targetCount = 0;
+
+    for (let i = 0; i < itemCount; i++) {
+        const emoji = usedEmojis[Math.floor(Math.random() * usedEmojis.length)];
+        items.push(emoji);
+        if (emoji === targetEmoji) targetCount++;
+    }
+
+    // targetが0個にならないよう保証
+    if (targetCount === 0) {
+        items[0] = targetEmoji;
+        targetCount = 1;
+    }
+
+    correctAnswer = targetCount;
+
+    // 問題文を表示
+    questionText.textContent = `「${targetEmoji}」は何個ある？`;
+
+    // 食材を表示
+    items.forEach(function (emoji) {
+        const span = document.createElement("span");
+        span.textContent = emoji;
+        foodDisplay.appendChild(span);
+    });
+
+    // 一定時間後に食材を隠す
+    setTimeout(function () {
+
+        foodDisplay.textContent = "？？？";
+        foodDisplay.style.fontSize = "48px";
+
+        // 入力受付開始
+        setButtonsEnabled(true);
+
+    }, displayTime);
+}
+
+// -------------------------
+// 回答処理
+// -------------------------
+
+function handleAnswer(num) {
+
+    if (!buttonsEnabled || gameEnded) return;
+
+    setButtonsEnabled(false);
+    foodDisplay.style.fontSize = "36px";
+
+    if (num === correctAnswer) {
+
+        // 正解
+        roundMessage.textContent = `✓ 正解！（${correctAnswer}個）`;
+        roundMessage.style.color = "#4caf50";
+        showHappyCharacter();
+
+    } else {
+
+        // 不正解
+        lives--;
+        livesDisplay.textContent = "❤".repeat(Math.max(lives, 0)) +
+                                    "🖤".repeat(3 - Math.max(lives, 0));
+        roundMessage.textContent = `✗ 不正解… 正解は${correctAnswer}個`;
+        roundMessage.style.color = "#e53935";
+        showDamageCharacter();
+    }
+
+    currentRound++;
+    progressDisplay.textContent = currentRound;
+
+    if (lives <= 0) {
+
+        setTimeout(function () { endGame(); }, 1000);
+
+    } else if (currentRound >= roundCount) {
+
+        setTimeout(function () { endGame(); }, 1000);
+
+    } else {
+
+        // 次のラウンドへ
+        setTimeout(function () {
+            questionText.textContent = "";
+            foodDisplay.textContent = "";
+            foodDisplay.style.fontSize = "36px";
+            setupRound();
+        }, 1200);
+    }
+}
+
+// -------------------------
+// 数字ボタンのイベント登録
+// -------------------------
+
+document.querySelectorAll(".num-button").forEach(function (btn) {
+
+    btn.addEventListener("touchstart", function (e) {
+        e.preventDefault();
+        handleAnswer(parseInt(btn.dataset.num));
+    });
+
+    btn.addEventListener("click", function () {
+        handleAnswer(parseInt(btn.dataset.num));
+    });
+});
+
+// -------------------------
+// ゲーム終了処理
+// -------------------------
+
+function endGame() {
+
+    if (gameEnded) return;
+    gameEnded = true;
+
+    setButtonsEnabled(false);
+
+    // 戻るボタンを無効化
+    document.getElementById("back-button").style.pointerEvents = "none";
+    document.getElementById("back-button").style.opacity = "0.4";
+
+    const finalLives = Math.max(lives, 0);
+
+    document.getElementById("game-over").style.display = "flex";
+    document.getElementById("final-score").textContent = "❤".repeat(finalLives);
+
+    setTimeout(function () {
+
+        window.location.href =
+            "{% url 'home' %}?action=count_result&lives=" + finalLives +
+            "&difficulty=" + difficulty;
+
+    }, 3000);
+}
+
+// -------------------------
+// カウントダウン後にゲーム開始
+// -------------------------
+
+setButtonsEnabled(false);
+
+startCountdown(function () {
+    setupRound();
+});
+
+{% endblock %}
