@@ -74,6 +74,17 @@
     100% { opacity: 0; transform: translateY(-40px); }
 }
 
+/* アイテムをキラキラ光らせる */
+@keyframes itemGlow {
+    0%   { filter: drop-shadow(0 0 4px gold); }
+    50%  { filter: drop-shadow(0 0 12px gold) drop-shadow(0 0 20px yellow); }
+    100% { filter: drop-shadow(0 0 4px gold); }
+}
+
+.fall-object.item-glow {
+    animation: itemGlow 0.8s ease-in-out infinite;
+}
+
 {% endblock %}
 
 
@@ -334,7 +345,6 @@ function spawnObject() {
     const el = document.createElement("div");
     el.className = "fall-object";
 
-    // 60%の確率で障害物、40%でアイテム
     const isObstacle = Math.random() < 0.6;
 
     if (isObstacle) {
@@ -343,7 +353,11 @@ function spawnObject() {
     } else {
         el.textContent = ITEMS[Math.floor(Math.random() * ITEMS.length)];
         el.dataset.type = "item";
+
+        // アイテムはキラキラ光らせる
+        el.classList.add("item-glow");
     }
+
 
     const maxX = area.clientWidth - 40;
     el.style.left = Math.random() * maxX + "px";

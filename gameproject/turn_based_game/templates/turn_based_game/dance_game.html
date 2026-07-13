@@ -2,27 +2,17 @@
 {% load static %}
 
 {% block page_title %}ダンスまね{% endblock %}
-{# ブラウザのタブに表示されるタイトル #}
 
 {% block result_label %}結果{% endblock %}
 
 
 {% block extra_style %}
-{# ダンスまね専用のCSS #}
 
 /* お題が隠れた時の矢印 */
 .arrow-icon.hidden {
-    color: transparent;        /* 文字を透明にする */
+    color: transparent;
     background: rgba(180,180,180,0.4);
     border-color: #bbb;
-}
-
-/* 表示カウントダウン */
-#show-timer {
-    font-size: 18px;
-    color: #666;
-    min-height: 24px;
-    margin-bottom: 4px;
 }
 
 /* お題の矢印を表示するエリア */
@@ -105,36 +95,49 @@
     margin-top: 5px;
 }
 
+/* ステージ表示 */
+#stage-banner {
+    font-size: 28px;
+    font-weight: bold;
+    color: #333;
+    min-height: 36px;
+    margin-bottom: 4px;
+}
+
+/* 暗記タイマー表示 */
+#question-text {
+    font-size: 16px;
+    color: #666;
+    min-height: 24px;
+}
+
 {% endblock %}
 
 
 {% block status_extra %}
-{# 進行状況を表示 #}
+<div>ステージ：<span id="current-stage">1</span> / <span id="total-stages">3</span></div>
 <div>進捗：<span id="progress">0</span> / <span id="total"></span></div>
 {% endblock %}
 
 
 {% block game_area %}
 
-{# 「あと○秒で隠れます」の表示 #}
-<div id="show-timer"></div>
+<div id="stage-banner"></div>
 
-{# お題の矢印を表示するエリア #}
+<div id="question-text"></div>
+
 <div id="sequence-display"></div>
 
-{# メッセージ表示 #}
 <div id="game-message"></div>
 
 {% endblock %}
 
 
 {% block character_area %}
-{# キャラクター + 入力ボタン #}
 <div style="text-align:center; margin-top:10px;">
 
     <img src="{% static character_image %}" id="character" style="height:150px;">
 
-    {# 方向入力ボタン（スマホ・PC共通） #}
     <div class="arrow-buttons">
         <button class="arrow-button" data-dir="left">←</button>
         <button class="arrow-button" data-dir="up">↑</button>
@@ -165,19 +168,33 @@ const config = document.getElementById("game-config");
 
 const difficulty = config.dataset.difficulty;
 const sequenceLength = parseInt(config.dataset.sequenceLength);
-const showSeconds = parseInt(config.dataset.showSeconds);  // お題を見せる時間
+const showSeconds = parseInt(config.dataset.showSeconds);
 const happyImage = config.dataset.happyImage;
 const damageImage = config.dataset.damageImage;
 
+// キャラクター画像
 const character = document.getElementById("character");
 const normalImage = "{% static character_image %}";
 
+// 表示要素を取得
 const sequenceDisplay = document.getElementById("sequence-display");
 const gameMessage = document.getElementById("game-message");
+const stageBanner = document.getElementById("stage-banner");
+const questionText = document.getElementById("question-text");
 const progressDisplay = document.getElementById("progress");
 const totalDisplay = document.getElementById("total");
-const showTimer = document.getElementById("show-timer");
+const currentStageDisplay = document.getElementById("current-stage");
+const totalStagesDisplay = document.getElementById("total-stages");
 
+// -------------------------
+// ステージ設定
+// -------------------------
+
+const TOTAL_STAGES = 3;
+let currentStage = 1;
+let gameEnded = false;
+
+totalStagesDisplay.textContent = TOTAL_STAGES;
 totalDisplay.textContent = sequenceLength;
 
 // -------------------------
@@ -190,39 +207,6 @@ const ARROWS = [
     { dir: "down",  symbol: "↓" },
     { dir: "right", symbol: "→" },
 ];
-
-// -------------------------
-// お題をランダムに生成
-// -------------------------
-
-const sequence = [];
-
-for (let i = 0; i < sequenceLength; i++) {
-    sequence.push(ARROWS[Math.floor(Math.random() * ARROWS.length)]);
-}
-
-// -------------------------
-// お題を画面に表示
-// -------------------------
-
-const arrowElements = [];
-
-sequence.forEach(function (arrow) {
-
-    const el = document.createElement("div");
-    el.className = "arrow-icon";
-    el.textContent = arrow.symbol;
-
-    sequenceDisplay.appendChild(el);
-    arrowElements.push(el);
-});
-
-// -------------------------
-// 入力状態の管理
-// -------------------------
-
-let currentIndex = 0;
-let gameEnded = false;
 
 // -------------------------
 // キャラクター画像の切り替え
@@ -239,6 +223,97 @@ function showDamageCharacter() {
 }
 
 // -------------------------
+// ボタンの有効・無効
+// -------------------------
+
+function setButtonsEnabled(enabled) {
+    document.querySelectorAll(".arrow-button").forEach(function (btn) {
+        btn.disabled = !enabled;
+    });
+}
+
+// -------------------------
+// 1ステージの準備
+// -------------------------
+
+let sequence = [];
+let arrowElements = [];
+let currentIndex = 0;
+
+function setupStage(stageNum) {
+
+    // ステージ番号を更新
+    currentStageDisplay.textContent = stageNum;
+    stageBanner.textContent = "ステージ " + stageNum;
+    gameMessage.textContent = "";
+    progressDisplay.textContent = 0;
+    currentIndex = 0;
+
+    // 表示エリアをリセット
+    sequenceDisplay.innerHTML = "";
+    arrowElements = [];
+
+    // 今ステージのシーケンスをランダムに生成
+    sequence = [];
+    for (let i = 0; i < sequenceLength; i++) {
+        sequence.push(ARROWS[Math.floor(Math.random() * ARROWS.length)]);
+    }
+
+    // お題を画面に表示
+    sequence.forEach(function (arrow) {
+        const el = document.createElement("div");
+        el.className = "arrow-icon";
+        el.textContent = arrow.symbol;
+        sequenceDisplay.appendChild(el);
+        arrowElements.push(el);
+    });
+}
+
+// -------------------------
+// お題を見せてから隠す処理
+// -------------------------
+
+function startStageCountdown() {
+
+    setButtonsEnabled(false);
+    questionText.textContent = showSeconds + "秒後に隠れます";
+    gameMessage.textContent = "覚えてください！";
+    gameMessage.style.color = "#333";
+
+    let remaining = showSeconds;
+
+    const hideTimer = setInterval(function () {
+
+        remaining--;
+
+        if (remaining > 0) {
+
+            questionText.textContent = remaining + "秒後に隠れます";
+
+        } else {
+
+            clearInterval(hideTimer);
+
+            // お題を隠す
+            arrowElements.forEach(function (el) {
+                el.classList.add("hidden");
+            });
+
+            questionText.textContent = "";
+            gameMessage.textContent = "入力してください！";
+            gameMessage.style.color = "#333";
+
+            // 最初の矢印をハイライト
+            arrowElements[0].classList.add("current");
+
+            // 入力ボタンを有効化
+            setButtonsEnabled(true);
+        }
+
+    }, 1000);
+}
+
+// -------------------------
 // 入力処理
 // -------------------------
 
@@ -250,8 +325,8 @@ function handleInput(dir) {
 
     if (dir === expected.dir) {
 
-        // 正解：入力した番号の矢印だけ正解色にする
-        arrowElements[currentIndex].classList.remove("hidden");
+        // 正解
+        arrowElements[currentIndex].classList.remove("hidden", "current");
         arrowElements[currentIndex].classList.add("correct");
 
         showHappyCharacter();
@@ -263,17 +338,39 @@ function handleInput(dir) {
 
         if (currentIndex >= sequenceLength) {
 
-            endGame("clear");
+            setButtonsEnabled(false);
+
+            if (currentStage >= TOTAL_STAGES) {
+
+                // 全ステージクリア
+                gameMessage.textContent = "🎉 全ステージクリア！";
+                gameMessage.style.color = "#4caf50";
+                setTimeout(function () { endGame("clear"); }, 800);
+
+            } else {
+
+                // 次のステージへ
+                gameMessage.textContent = "✨ ステージ " + currentStage + " クリア！";
+                gameMessage.style.color = "#4caf50";
+                stageBanner.textContent = "ステージ " + currentStage + " クリア！";
+
+                currentStage++;
+
+                setTimeout(function () {
+                    setupStage(currentStage);
+                    startStageCountdown();
+                }, 1500);
+            }
 
         } else {
 
-            // 次の矢印も隠したままにする（正解したものだけ見える）
+            // 次の矢印をハイライト
             arrowElements[currentIndex].classList.add("current");
         }
 
     } else {
 
-        // 不正解：間違えた箇所を赤にして正解も見せる
+        // 不正解
         arrowElements[currentIndex].classList.remove("hidden", "current");
         arrowElements[currentIndex].classList.add("wrong");
 
@@ -285,6 +382,8 @@ function handleInput(dir) {
         showDamageCharacter();
         gameMessage.textContent = "✗ 失敗…";
         gameMessage.style.color = "#e53935";
+
+        setButtonsEnabled(false);
 
         setTimeout(function () {
             endGame("fail");
@@ -338,16 +437,14 @@ function endGame(result) {
     if (gameEnded) return;
     gameEnded = true;
 
+    setButtonsEnabled(false);
+
     document.getElementById("back-button").style.pointerEvents = "none";
     document.getElementById("back-button").style.opacity = "0.4";
 
-    document.querySelectorAll(".arrow-button").forEach(function (btn) {
-        btn.disabled = true;
-    });
-
     document.getElementById("game-over").style.display = "flex";
     document.getElementById("final-score").textContent =
-        result === "clear" ? "クリア！" : "もう少し！";
+        result === "clear" ? "全ステージクリア！" : "ステージ " + currentStage + " で失敗…";
 
     setTimeout(function () {
         window.location.href =
@@ -357,54 +454,14 @@ function endGame(result) {
 }
 
 // -------------------------
-// ゲームの流れ
+// カウントダウン後にゲーム開始
 // -------------------------
 
-// カウントダウン中はボタンを無効化
-document.querySelectorAll(".arrow-button").forEach(function (btn) {
-    btn.disabled = true;
-});
+setButtonsEnabled(false);
 
 startCountdown(function () {
-
-    // カウントダウン終了：お題を表示し、残り時間をカウントダウン
-    showTimer.textContent = `${showSeconds}秒後に隠れます`;
-    gameMessage.textContent = "覚えてください！";
-    gameMessage.style.color = "#333";
-
-    let remaining = showSeconds;
-
-    const hideTimer = setInterval(function () {
-
-        remaining--;
-
-        if (remaining > 0) {
-
-            showTimer.textContent = `${remaining}秒後に隠れます`;
-
-        } else {
-
-            clearInterval(hideTimer);
-
-            // お題を隠す
-            arrowElements.forEach(function (el) {
-                el.classList.add("hidden");
-            });
-
-            showTimer.textContent = "";
-            gameMessage.textContent = "入力してください！";
-            gameMessage.style.color = "#333";
-
-            // 最初の矢印をハイライト
-            arrowElements[0].classList.add("current");
-
-            // 入力ボタンを有効化
-            document.querySelectorAll(".arrow-button").forEach(function (btn) {
-                btn.disabled = false;
-            });
-        }
-
-    }, 1000);
+    setupStage(1);
+    startStageCountdown();
 });
 
 {% endblock %}

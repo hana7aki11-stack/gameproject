@@ -14,6 +14,23 @@
     cursor:pointer;         /* クリック可能を示すマウスカーソル */
     transition: width 0.2s, height 0.2s; /* サイズ変化を滑らかに */
 }
+
+/* +1 エフェクト */
+.score-popup {
+    position: absolute;
+    font-size: 28px;
+    font-weight: bold;
+    color: #4caf50;
+    pointer-events: none;        /* クリックを受け付けない */
+    animation: popUp 0.8s ease-out forwards;
+    z-index: 20;
+}
+
+@keyframes popUp {
+    0%   { opacity: 1; transform: translateY(0); }
+    100% { opacity: 0; transform: translateY(-50px); }
+}
+
 {% endblock %}
 
 
@@ -42,7 +59,6 @@
 
 
 {% block script %}
-
 // 難易度の設定値を取得
 const config = document.getElementById("game-config");
 const difficulty = config.dataset.difficulty;
@@ -89,7 +105,7 @@ const timeDisplay = document.getElementById("time");
 timeDisplay.textContent = time;
 
 // ボールをランダムな位置に移動
-function moveBall(){
+function moveBall() {
 
     const maxX = area.clientWidth - ball.offsetWidth;
     const maxY = area.clientHeight - ball.offsetHeight;
@@ -99,22 +115,7 @@ function moveBall(){
 
     ball.style.left = x + "px";
     ball.style.top = y + "px";
-
 }
-
-let autoMoveTimer;
-
-startCountdown(function(){
-
-    moveBall();
-
-    autoMoveTimer = setInterval(function(){
-        moveBall();
-    }, spawnInterval);
-
-    startTimer();
-
-});
 
 // スコアを難易度倍率分だけ加算
 function addScore() {
@@ -124,14 +125,68 @@ function addScore() {
 
 // クリック時にキャラを一瞬Happy画像にする
 function happyCharacter() {
-
     character.src = happyImage;
-
     setTimeout(function () {
         character.src = normalImage;
     }, 500);
-
 }
+
+// タップした場所に +スコア が浮かび上がるエフェクト
+function showScorePopup(x, y) {
+
+    const popup = document.createElement("div");
+    popup.className = "score-popup";
+    popup.textContent = "+" + Math.round(scoreMultiplier);
+
+    // タップした座標に表示（ゲームエリア基準）
+    popup.style.left = x + "px";
+    popup.style.top = y + "px";
+
+    area.appendChild(popup);
+
+    // アニメーション終了後に削除
+    setTimeout(function () {
+        popup.remove();
+    }, 800);
+}
+
+// ボールをクリック・タップした時の処理
+function handleBallHit(e) {
+
+    e.preventDefault();
+
+    // タップ・クリックした座標をゲームエリア基準に変換
+    const areaRect = area.getBoundingClientRect();
+
+    let clientX, clientY;
+
+    if (e.touches && e.touches.length > 0) {
+        // スマホのタッチ座標
+        clientX = e.touches[0].clientX;
+        clientY = e.touches[0].clientY;
+    } else {
+        // PCのマウス座標
+        clientX = e.clientX;
+        clientY = e.clientY;
+    }
+
+    const x = clientX - areaRect.left;
+    const y = clientY - areaRect.top;
+
+    // +スコア エフェクトを表示
+    showScorePopup(x, y);
+
+    addScore();
+    happyCharacter();
+
+    setTimeout(function () {
+        moveBall();
+    }, 150 / ballSpeed);
+}
+
+// PC用（クリック）・スマホ用（タップ）
+ball.addEventListener("click", handleBallHit);
+ball.addEventListener("touchstart", handleBallHit);
 
 // 1秒ごとに残り時間を減らし、0になったら終了処理
 function startTimer() {
@@ -165,24 +220,18 @@ function startTimer() {
     }, 1000);
 }
 
-// ボールクリック・タップ時の処理
-function handleBallHit(e) {
+// カウントダウン後にゲーム開始
+let autoMoveTimer;
 
-    // touchstart の場合、デフォルト動作（スクロール等）を防ぐ
-    e.preventDefault();
+startCountdown(function () {
 
-    addScore();
-    happyCharacter();
+    moveBall();
 
-    setTimeout(function () {
+    autoMoveTimer = setInterval(function () {
         moveBall();
-    }, 150 / ballSpeed);
-}
+    }, spawnInterval);
 
-// PC用（クリック）
-ball.addEventListener("click", handleBallHit);
-
-// スマホ用（タップ）
-ball.addEventListener("touchstart", handleBallHit);
+    startTimer();
+});
 
 {% endblock %}
