@@ -1161,7 +1161,7 @@ def timing_game(request):
         "character_happy_image": character_happy_image,
         "character_damage_image": character_damage_image,
         "background_image": background_image,
-        "game_title": "料理タイミング",
+        "game_title": "火加減チャレンジ",
         "selected_difficulty": selected_difficulty,
         "round_count": current_settings['round_count'],
         "speed": current_settings['speed'],
