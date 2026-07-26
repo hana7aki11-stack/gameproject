@@ -412,6 +412,32 @@ function endGame() {
 
     const finalLives = Math.max(lives, 0);
 
+const normalImg = "{% static character_image %}";
+const happyImg = "{% static character_happy_image %}";
+const tiredImg = "{% static character_damage_image %}";
+
+let resultImg, resultMsg;
+
+if (finalLives === 3) {
+    resultImg = happyImg;
+    resultMsg = "かんぺきな火加減だったよ！おいしそう！";
+} else if (finalLives === 2) {
+    resultImg = happyImg;
+    resultMsg = "上手に料理できたよ！";
+} else if (finalLives === 1) {
+    resultImg = normalImg;
+    resultMsg = "もうすこしで完璧な料理だったのに…";
+} else {
+    resultImg = tiredImg;
+    resultMsg = "こげちゃった…つぎはうまくやるよ！";
+}
+
+showResultFeedback(resultImg, resultMsg);
+
+document.getElementById("game-over").style.display = "flex";
+document.getElementById("final-score").textContent = "❤".repeat(finalLives);
+
+
     document.getElementById("game-over").style.display = "flex";
     document.getElementById("final-score").textContent = "❤".repeat(finalLives);
 

@@ -106,7 +106,6 @@ body{
 
 }
 
-
 #game-over{
     display:none;
     position:absolute;
@@ -119,11 +118,49 @@ body{
     flex-direction:column;
     justify-content:center;
     align-items:center;
-    font-size:30px;
+    font-size:20px;          /* 30px → 20px に縮小 */
     text-align:center;
     z-index:50;
 }
 
+/* 結果フィードバック */
+#result-feedback {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    margin: 6px 0;
+}
+
+#result-character {
+    height: 70px;
+    flex-shrink: 0;
+}
+
+/* 吹き出し */
+.speech-bubble {
+    position: relative;
+    background: white;
+    color: #333;
+    border-radius: 12px;
+    padding: 8px 12px;
+    font-size: 13px;
+    font-weight: bold;
+    max-width: 160px;
+    text-align: left;
+    line-height: 1.4;
+}
+
+/* 吹き出しの三角（左向き） */
+.speech-bubble::before {
+    content: "";
+    position: absolute;
+    left: -12px;
+    top: 50%;
+    transform: translateY(-50%);
+    border: 6px solid transparent;
+    border-right-color: white;
+}
 {% block extra_style %}{% endblock %}
 
 </style>
@@ -156,13 +193,20 @@ body{
 {% block game_area %}{% endblock %}
 
         <!-- ゲーム終了画面 -->
-        <div id="game-over">
+      <div id="game-over">
 
-    <h2>ゲーム終了！</h2>
+    <h2 style="margin: 4px 0; font-size: 22px;">ゲーム終了！</h2>
 
-    <p>{% block result_label %}スコア{% endblock %}：<span id="final-score"></span></p>
+    <div id="result-feedback">
+        <img id="result-character" src="{% static character_image %}">
+        <div class="speech-bubble" id="result-speech"></div>
+    </div>
 
-    <p>ホーム画面へ戻ります…</p>
+    <p style="margin: 4px 0;">
+        {% block result_label %}スコア{% endblock %}：<span id="final-score"></span>
+    </p>
+
+    <p style="margin: 4px 0; font-size: 14px;">ホーム画面へ戻ります…</p>
 
 </div>
 
@@ -188,6 +232,14 @@ body{
 <script>
 
 let gameStarted = false;
+
+// 結果フィードバックを設定する共通関数
+// imageSrc：表示するキャラクター画像のパス
+// message ：吹き出しに表示するセリフ
+function showResultFeedback(imageSrc, message) {
+    document.getElementById("result-character").src = imageSrc;
+    document.getElementById("result-speech").textContent = message;
+}
 
 function startCountdown(callback){
 

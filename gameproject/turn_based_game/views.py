@@ -381,11 +381,12 @@ def home(request):
         play_count += 1
 
         difficulty_bonus = {
-            'easy':   {'growth': 1, 'satisfaction': 8},
+            'easy': {'growth': 1, 'satisfaction': 8},
             'normal': {'growth': 2, 'satisfaction': 12},
-            'hard':   {'growth': 3, 'satisfaction': 16},
-            'oni':    {'growth': 4, 'satisfaction': 20},
+            'hard': {'growth': 3, 'satisfaction': 16},
+            'oni': {'growth': 4, 'satisfaction': 20},
         }
+
         diff = request.GET.get("difficulty", "easy")
         bonus = difficulty_bonus.get(diff, difficulty_bonus['easy'])
 
@@ -395,11 +396,12 @@ def home(request):
             fullness -= 5
             growth += bonus['growth']
             event_message = "完璧なダンス！"
+
         else:
-            satisfaction += bonus['satisfaction'] // 2
+            # 失敗時は難易度に関わらず固定値
+            satisfaction += 4
             energy -= 5
             fullness -= 5
-            growth += max(1, bonus['growth'] - 1)
             event_message = "惜しかった！また挑戦しよう！"
 
         request.session["event_message"] = event_message
@@ -888,6 +890,7 @@ def home(request):
         'room_wallpaper': background_image,
         'background_image': background_image,
         'sleep_hours': remaining_time * 2,
+        "character_damage_image": f"images/character{growth_stage}-tired.png",
     }
 
     return render(request, 'turn_based_game/home.html', status)
@@ -939,10 +942,10 @@ def ball_game(request):
         selected_difficulty = 'easy'
 
     DIFFICULTY_SETTINGS = {
-        'easy':   {'ball_speed': 1.0, 'spawn_interval': 1000, 'score_multiplier': 1},
-        'normal': {'ball_speed': 1.4, 'spawn_interval': 800,  'score_multiplier': 1.5},
-        'hard':   {'ball_speed': 1.8, 'spawn_interval': 600,  'score_multiplier': 2},
-        'oni':    {'ball_speed': 2.4, 'spawn_interval': 400,  'score_multiplier': 3},
+        'easy': {'ball_speed': 1.0, 'spawn_interval': 1000, 'score_multiplier': 1},
+        'normal': {'ball_speed': 1.4, 'spawn_interval': 800, 'score_multiplier': 1},
+        'hard': {'ball_speed': 1.8, 'spawn_interval': 600, 'score_multiplier': 1},
+        'oni': {'ball_speed': 2.4, 'spawn_interval': 400, 'score_multiplier': 1},
     }
     current_settings = DIFFICULTY_SETTINGS[selected_difficulty]
 
@@ -1020,6 +1023,7 @@ def food_game(request):
         "time_limit": current_settings['time_limit'],
         "score_multiplier": current_settings['score_multiplier'],
         "food_item_images": food_item_images,
+        "character_damage_image": f"images/character{growth_stage}-tired.png",
     }
     return render(request, "turn_based_game/food_game.html", status)
 

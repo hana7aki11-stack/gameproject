@@ -198,24 +198,46 @@ function startTimer() {
 
         if (time <= 0) {
 
-            clearInterval(timer);
-            clearInterval(autoMoveTimer);
+    clearInterval(timer);
+    clearInterval(autoMoveTimer);
 
-            ball.style.display = "none";
+    ball.style.display = "none";
 
-            // 戻るボタンを無効化
-            document.getElementById("back-button").style.pointerEvents = "none";
-            document.getElementById("back-button").style.opacity = "0.4";
+    // 戻るボタンを無効化
+    document.getElementById("back-button").style.pointerEvents = "none";
+    document.getElementById("back-button").style.opacity = "0.4";
 
-            document.getElementById("game-over").style.display = "flex";
-            document.getElementById("final-score").textContent = Math.round(score);
 
-            setTimeout(function () {
-                window.location.href =
-                    "{% url 'home' %}?action=ball_game&score=" + Math.round(score) +
-                    "&difficulty=" + difficulty;
-            }, 5000);
-        }
+    const normalImg = "{% static character_image %}";
+    const happyImg = "{% static character_happy_image %}";
+    const tiredImg = "{% static character_damage_image %}";
+
+    let resultImg, resultMsg;
+
+    if (Math.round(score) >= 15) {
+        resultImg = happyImg;
+        resultMsg = "たくさんつかまえたよ！さいこう！";
+    } else if (Math.round(score) >= 10) {
+        resultImg = normalImg;
+        resultMsg = "もうすこしでもっとうまくなれそう！";
+    } else {
+        resultImg = tiredImg;
+        resultMsg = "むずかしかったなあ…またやってみよう";
+    }
+
+    showResultFeedback(resultImg, resultMsg);
+
+
+    // 元からあった2行はそのまま残す
+    document.getElementById("game-over").style.display = "flex";
+    document.getElementById("final-score").textContent = Math.round(score);
+
+    setTimeout(function () {
+        window.location.href =
+            "{% url 'home' %}?action=ball_game&score=" + Math.round(score) +
+            "&difficulty=" + difficulty;
+    }, 5000);
+}
 
     }, 1000);
 }

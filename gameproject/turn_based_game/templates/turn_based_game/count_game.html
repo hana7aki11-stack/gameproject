@@ -88,7 +88,6 @@
 
 
 {% block game_area %}
-{# 問題文・食材表示エリア・数字ボタン #}
 
 <div id="question-text"></div>
 
@@ -155,6 +154,7 @@ const roundMessage = document.getElementById("round-message");
 const progressDisplay = document.getElementById("progress");
 const totalDisplay = document.getElementById("total");
 const livesDisplay = document.getElementById("lives");
+const timeDisplay = document.getElementById("time");
 
 totalDisplay.textContent = roundCount;
 
@@ -201,20 +201,17 @@ function setButtonsEnabled(enabled) {
 
 function setupRound() {
 
-    if (gameEnded) return;
-
     setButtonsEnabled(false);
     roundMessage.textContent = "";
     foodDisplay.textContent = "";
+    foodDisplay.style.fontSize = "36px";
 
     // 今回使う食材の種類をランダムに選ぶ
     const shuffled = allEmojis.slice().sort(function () { return Math.random() - 0.5; });
     const usedEmojis = shuffled.slice(0, typeCount);
 
-    // 数える対象の食材をランダムに選ぶ
     const targetEmoji = usedEmojis[0];
 
-    // 食材をランダムに並べる（targetEmojiが何個含まれるかを記録）
     const items = [];
     let targetCount = 0;
 
@@ -224,7 +221,6 @@ function setupRound() {
         if (emoji === targetEmoji) targetCount++;
     }
 
-    // targetが0個にならないよう保証
     if (targetCount === 0) {
         items[0] = targetEmoji;
         targetCount = 1;
@@ -232,26 +228,48 @@ function setupRound() {
 
     correctAnswer = targetCount;
 
-    // 問題文を表示
-    questionText.textContent = `「${targetEmoji}」は何個ある？`;
+    questionText.textContent = "「" + targetEmoji + "」は何個ある？";
 
-    // 食材を表示
     items.forEach(function (emoji) {
         const span = document.createElement("span");
         span.textContent = emoji;
         foodDisplay.appendChild(span);
     });
 
-    // 一定時間後に食材を隠す
-    setTimeout(function () {
+    // -------------------------
+// 暗記タイマーのカウントダウン表示
+// -------------------------
 
-        foodDisplay.textContent = "？？？";
-        foodDisplay.style.fontSize = "48px";
+let remaining = Math.floor(displayTime / 1000);
 
-        // 入力受付開始
-        setButtonsEnabled(true);
+// game_base.html の「残り時間：」欄に表示する
+timeDisplay.textContent = remaining;
 
-    }, displayTime);
+const memTimer = setInterval(function () {
+
+    remaining--;
+
+    if (remaining > 0) {
+        timeDisplay.textContent = remaining;
+    } else {
+        clearInterval(memTimer);
+        timeDisplay.textContent = "0";
+    }
+
+}, 1000);
+
+// displayTime後に食材を隠す
+setTimeout(function () {
+
+    clearInterval(memTimer);
+    timeDisplay.textContent = "0";
+
+    foodDisplay.textContent = "？？？";
+    foodDisplay.style.fontSize = "48px";
+
+    setButtonsEnabled(true);
+
+}, displayTime);
 }
 
 // -------------------------
@@ -338,6 +356,29 @@ function endGame() {
     document.getElementById("back-button").style.opacity = "0.4";
 
     const finalLives = Math.max(lives, 0);
+
+const normalImg = "{% static character_image %}";
+const happyImg = "{% static character_happy_image %}";
+const tiredImg = "{% static character_damage_image %}";
+
+let resultImg, resultMsg;
+
+if (finalLives === 3) {
+    resultImg = happyImg;
+    resultMsg = "ぜんもんせいかい！かんさつりょくさいこう！";
+} else if (finalLives === 2) {
+    resultImg = happyImg;
+    resultMsg = "よく数えられたよ！";
+} else if (finalLives === 1) {
+    resultImg = normalImg;
+    resultMsg = "もうすこしでぜんもんせいかいだったのに…";
+} else {
+    resultImg = tiredImg;
+    resultMsg = "むずかしかった…もう一回かぞえてみよう！";
+}
+
+showResultFeedback(resultImg, resultMsg);
+
 
     document.getElementById("game-over").style.display = "flex";
     document.getElementById("final-score").textContent = "❤".repeat(finalLives);

@@ -442,6 +442,26 @@ function endGame(result) {
     document.getElementById("back-button").style.pointerEvents = "none";
     document.getElementById("back-button").style.opacity = "0.4";
 
+
+const normalImg = "{% static character_image %}";
+const happyImg = "{% static character_happy_image %}";
+const tiredImg = "{% static character_damage_image %}";
+
+let resultImg, resultMsg;
+
+if (result === "clear") {
+    resultImg = happyImg;
+    resultMsg = "ぜんぶおぼえてた！さいこうのダンス！";
+} else {
+    resultImg = tiredImg;
+    resultMsg = "むずかしかった…もう一回おぼえてみよう！";
+}
+
+showResultFeedback(resultImg, resultMsg);
+
+document.getElementById("game-over").style.display = "flex";
+document.getElementById("final-score").textContent =
+    result === "clear" ? "全ステージクリア！" : "ステージ " + currentStage + " で失敗…";
     document.getElementById("game-over").style.display = "flex";
     document.getElementById("final-score").textContent =
         result === "clear" ? "全ステージクリア！" : "ステージ " + currentStage + " で失敗…";
