@@ -3,83 +3,262 @@ from django.contrib.auth.models import User
 
 
 class SaveData(models.Model):
+
+    # =========================
+    # ユーザー
+    # =========================
     user = models.OneToOneField(
         User,
-        on_delete=models.CASCADE
+        on_delete=models.CASCADE,
+        verbose_name='ユーザー'
     )
 
-    satisfaction = models.IntegerField(default=50)
-    energy = models.IntegerField(default=50)
-    growth = models.IntegerField(default=0)
-    fullness = models.IntegerField(default=50)
+    # =========================
+    # キャラクターの基本ステータス
+    # =========================
+    satisfaction = models.IntegerField(
+        default=50,
+        verbose_name='満足度'
+    )
 
-    turn = models.IntegerField(default=1)
-    remaining_time = models.IntegerField(default=6)
+    energy = models.IntegerField(
+        default=50,
+        verbose_name='体力'
+    )
 
-    play_count = models.IntegerField(default=0)
-    healthy_food_count = models.IntegerField(default=0)
-    snack_count = models.IntegerField(default=0)
+    growth = models.IntegerField(
+        default=0,
+        verbose_name='成長度'
+    )
 
-    # 総プレイ時間（秒単位で累積）
-    total_play_seconds = models.IntegerField(default=0)
+    fullness = models.IntegerField(
+        default=50,
+        verbose_name='満腹度'
+    )
 
-    # プレイ回数（セッション開始のたびに+1）
-    play_session_count = models.IntegerField(default=0)
+    # =========================
+    # ゲーム進行状況
+    # =========================
+    turn = models.IntegerField(
+        default=1,
+        verbose_name='ターン'
+    )
 
+    remaining_time = models.IntegerField(
+        default=6,
+        verbose_name='残り時間'
+    )
+
+    # =========================
+    # プレイ回数・食事回数
+    # =========================
+    play_count = models.IntegerField(
+        default=0,
+        verbose_name='プレイ回数'
+    )
+
+    healthy_food_count = models.IntegerField(
+        default=0,
+        verbose_name='健康的な食事回数'
+    )
+
+    snack_count = models.IntegerField(
+        default=0,
+        verbose_name='おやつ回数'
+    )
+
+    # =========================
+    # プレイ時間・セッション
+    # =========================
+    total_play_seconds = models.IntegerField(
+        default=0,
+        verbose_name='総プレイ時間（秒）'
+    )
+
+    play_session_count = models.IntegerField(
+        default=0,
+        verbose_name='プレイセッション数'
+    )
+
+    # =========================
     # 各行動の選択回数
-    action_rest_count = models.IntegerField(default=0)  # 休む
-    action_ball_count = models.IntegerField(default=0)  # ボールキャッチ
-    action_food_count = models.IntegerField(default=0)  # 好きなごはん選び
-    action_dodge_count = models.IntegerField(default=0)  # 障害物よけ
-    action_dance_count = models.IntegerField(default=0)  # ダンスまね
-    action_timing_count = models.IntegerField(default=0)  # 火加減チャレンジ
-    action_count_count = models.IntegerField(default=0)  # 食材かぞえ
-    action_next_day_count = models.IntegerField(default=0)  # 次の日へ
+    # =========================
+    action_rest_count = models.IntegerField(
+        default=0,
+        verbose_name='「休む」選択回数'
+    )
 
-    # 育成完了回数（growth >= 100 になった回数）
-    clear_count = models.IntegerField(default=0)
+    action_ball_count = models.IntegerField(
+        default=0,
+        verbose_name='「ボールキャッチ」選択回数'
+    )
 
-    # ゲームオーバー回数（energy <= 0 になった回数）
-    game_over_count = models.IntegerField(default=0)
+    action_food_count = models.IntegerField(
+        default=0,
+        verbose_name='「好きなごはん選び」選択回数'
+    )
 
-    # ゲームクリアまでの時間（秒単位、最初のプレイ開始から育成完了まで）
-    clear_time_seconds = models.IntegerField(default=0)
+    action_dodge_count = models.IntegerField(
+        default=0,
+        verbose_name='「障害物よけ」選択回数'
+    )
 
-    # 育成開始日時（リセット時にリセットされる）
-    play_started_at = models.DateTimeField(null=True, blank=True)
+    action_dance_count = models.IntegerField(
+        default=0,
+        verbose_name='「ダンスまね」選択回数'
+    )
 
-    # ミニゲームごとのプレイ回数と成功回数
-    minigame_ball_play = models.IntegerField(default=0)
-    minigame_ball_success = models.IntegerField(default=0)
+    action_timing_count = models.IntegerField(
+        default=0,
+        verbose_name='「火加減チャレンジ」選択回数'
+    )
 
-    minigame_food_play = models.IntegerField(default=0)
-    minigame_food_success = models.IntegerField(default=0)  # ライフ1以上で成功とする
+    action_count_count = models.IntegerField(
+        default=0,
+        verbose_name='「食材かぞえ」選択回数'
+    )
 
-    minigame_dodge_play = models.IntegerField(default=0)
-    minigame_dodge_success = models.IntegerField(default=0)
+    action_next_day_count = models.IntegerField(
+        default=0,
+        verbose_name='「次の日へ」選択回数'
+    )
 
-    minigame_dance_play = models.IntegerField(default=0)
-    minigame_dance_success = models.IntegerField(default=0)  # clearで成功
+    # =========================
+    # 育成結果
+    # =========================
+    clear_count = models.IntegerField(
+        default=0,
+        verbose_name='育成クリア回数'
+    )
 
-    minigame_timing_play = models.IntegerField(default=0)
-    minigame_timing_success = models.IntegerField(default=0)
+    game_over_count = models.IntegerField(
+        default=0,
+        verbose_name='ゲームオーバー回数'
+    )
 
-    minigame_count_play = models.IntegerField(default=0)
-    minigame_count_success = models.IntegerField(default=0)
+    clear_time_seconds = models.IntegerField(
+        default=0,
+        verbose_name='クリア時間（秒）'
+    )
 
+    # =========================
+    # 育成開始日時
+    # =========================
+    play_started_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name='育成開始日時'
+    )
 
+    # =========================
+    # ボールキャッチ
+    # =========================
+    minigame_ball_play = models.IntegerField(
+        default=0,
+        verbose_name='ボールキャッチ プレイ回数'
+    )
+
+    minigame_ball_success = models.IntegerField(
+        default=0,
+        verbose_name='ボールキャッチ 成功回数'
+    )
+
+    # =========================
+    # ごはん選び
+    # =========================
+    minigame_food_play = models.IntegerField(
+        default=0,
+        verbose_name='ごはん選び プレイ回数'
+    )
+
+    minigame_food_success = models.IntegerField(
+        default=0,
+        verbose_name='ごはん選び 成功回数'
+    )
+
+    # =========================
+    # 障害物よけ
+    # =========================
+    minigame_dodge_play = models.IntegerField(
+        default=0,
+        verbose_name='障害物よけ プレイ回数'
+    )
+
+    minigame_dodge_success = models.IntegerField(
+        default=0,
+        verbose_name='障害物よけ 成功回数'
+    )
+
+    # =========================
+    # ダンスまね
+    # =========================
+    minigame_dance_play = models.IntegerField(
+        default=0,
+        verbose_name='ダンスまね プレイ回数'
+    )
+
+    minigame_dance_success = models.IntegerField(
+        default=0,
+        verbose_name='ダンスまね 成功回数'
+    )
+
+    # =========================
+    # 火加減チャレンジ
+    # =========================
+    minigame_timing_play = models.IntegerField(
+        default=0,
+        verbose_name='火加減チャレンジ プレイ回数'
+    )
+
+    minigame_timing_success = models.IntegerField(
+        default=0,
+        verbose_name='火加減チャレンジ 成功回数'
+    )
+
+    # =========================
+    # 食材かぞえ
+    # =========================
+    minigame_count_play = models.IntegerField(
+        default=0,
+        verbose_name='食材かぞえ プレイ回数'
+    )
+
+    minigame_count_success = models.IntegerField(
+        default=0,
+        verbose_name='食材かぞえ 成功回数'
+    )
+
+    # =========================
+    # キャラクター・部屋
+    # =========================
     character_state = models.CharField(
         max_length=20,
-        default='normal'
+        default='normal',
+        verbose_name='キャラクター状態'
     )
 
     room_wallpaper = models.CharField(
         max_length=50,
-        default='room-default'
+        default='room-default',
+        verbose_name='部屋の壁紙'
     )
 
-    items = models.JSONField(default=list)
-    placed_items = models.JSONField(default=list)
+    # =========================
+    # アイテム
+    # =========================
+    items = models.JSONField(
+        default=list,
+        verbose_name='所持アイテム'
+    )
+
+    placed_items = models.JSONField(
+        default=list,
+        verbose_name='配置アイテム'
+    )
 
     def __str__(self):
         return self.user.username
+
+    class Meta:
+        verbose_name = 'ゲームデータ'
+        verbose_name_plural = 'ゲームデータ'

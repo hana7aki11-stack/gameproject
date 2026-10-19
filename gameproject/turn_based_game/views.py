@@ -48,41 +48,59 @@ def home(request):
     reaction_state = "normal"
 
     # -------------------------
+    # セーブデータ取得
+    # -------------------------
+
+    save_data = None
+
+    if request.user.is_authenticated:
+        try:
+            save_data = SaveData.objects.get(user=request.user)
+        except SaveData.DoesNotExist:
+            save_data = None
+
+    # -------------------------
     # セーブデータ自動ロード
     # -------------------------
 
-    if request.user.is_authenticated and not request.session.get('auto_loaded', False):
-        try:
-            save_data = SaveData.objects.get(user=request.user)
+    if (
+        request.user.is_authenticated
+        and not request.session.get('auto_loaded', False)
+        and save_data is not None
+    ):
 
-            # セッションにロード
-            request.session['satisfaction'] = save_data.satisfaction
-            request.session['energy'] = save_data.energy
-            request.session['growth'] = save_data.growth
-            request.session['fullness'] = save_data.fullness
-            request.session['turn'] = save_data.turn
-            request.session['remaining_time'] = save_data.remaining_time
-            request.session['play_count'] = save_data.play_count
-            request.session['healthy_food_count'] = save_data.healthy_food_count
-            request.session['snack_count'] = save_data.snack_count
-            request.session['character_state'] = save_data.character_state
-            request.session['room_wallpaper'] = save_data.room_wallpaper
-            request.session['items'] = save_data.items
-            request.session['placed_items'] = save_data.placed_items
+        # セッションにロード
+        request.session['satisfaction'] = save_data.satisfaction
+        request.session['energy'] = save_data.energy
+        request.session['growth'] = save_data.growth
+        request.session['fullness'] = save_data.fullness
+        request.session['turn'] = save_data.turn
+        request.session['remaining_time'] = save_data.remaining_time
+        request.session['play_count'] = save_data.play_count
+        request.session['healthy_food_count'] = save_data.healthy_food_count
+        request.session['snack_count'] = save_data.snack_count
+        request.session['character_state'] = save_data.character_state
+        request.session['room_wallpaper'] = save_data.room_wallpaper
+        request.session['items'] = save_data.items
+        request.session['placed_items'] = save_data.placed_items
 
-            # プレイ回数を+1
-            save_data.play_session_count += 1
+        # プレイ回数を+1
+        save_data.play_session_count += 1
 
-            # 育成開始日時が未設定なら記録
-            if not save_data.play_started_at:
-                save_data.play_started_at = timezone.now()
+        # 育成開始日時が未設定なら記録
+        if not save_data.play_started_at:
+            save_data.play_started_at = timezone.now()
 
-            save_data.save()
+        save_data.save()
 
-        except SaveData.DoesNotExist:
-            pass
+    # -------------------------
+    # セッション開始時刻を記録
+    # -------------------------
 
-        # セッション開始時刻を記録（プレイ時間計測用）
+    if (
+        request.user.is_authenticated
+        and not request.session.get('auto_loaded', False)
+    ):
         request.session['session_start'] = timezone.now().isoformat()
         request.session['auto_loaded'] = True
 
@@ -302,11 +320,14 @@ def home(request):
         play_count += 1
 
         # ログ記録
-        if request.user.is_authenticated:
+        if save_data is not None:
             save_data.action_ball_count += 1
             save_data.minigame_ball_play += 1
+
             if score >= 10:
                 save_data.minigame_ball_success += 1
+
+            save_data.save()
 
         if score < 10:
             satisfaction += 10
@@ -332,11 +353,14 @@ def home(request):
         food_lives = int(request.GET.get("lives", 0))
         healthy_food_count += 1
 
-        if request.user.is_authenticated:
+        if save_data is not None:
             save_data.action_food_count += 1
             save_data.minigame_food_play += 1
-            if food_lives >= 1:  # ライフ1以上で成功
+
+            if food_lives >= 1:
                 save_data.minigame_food_success += 1
+
+            save_data.save()
 
 
         if food_lives == 0:
@@ -374,11 +398,14 @@ def home(request):
         dodge_score = int(request.GET.get("score", 0))
         play_count += 1
 
-        if request.user.is_authenticated:
+        if save_data is not None:
             save_data.action_dodge_count += 1
             save_data.minigame_dodge_play += 1
+
             if dodge_lives >= 1:
                 save_data.minigame_dodge_success += 1
+
+            save_data.save()
 
         if dodge_lives == 0:
             satisfaction += 3
@@ -420,11 +447,14 @@ def home(request):
         result = request.GET.get("result", "fail")
         play_count += 1
 
-        if request.user.is_authenticated:
+        if save_data is not None:
             save_data.action_dance_count += 1
             save_data.minigame_dance_play += 1
+
             if result == "clear":
                 save_data.minigame_dance_success += 1
+
+            save_data.save()
 
         difficulty_bonus = {
             'easy': {'growth': 1, 'satisfaction': 8},
@@ -461,30 +491,35 @@ def home(request):
         timing_lives = int(request.GET.get("lives", 0))
         healthy_food_count += 1
 
-        if request.user.is_authenticated:
+        if save_data is not None:
             save_data.action_timing_count += 1
             save_data.minigame_timing_play += 1
+
             if timing_lives >= 1:
                 save_data.minigame_timing_success += 1
 
+            save_data.save()
 
         if timing_lives == 0:
             satisfaction += 2
             energy += 5
             fullness += 10
             event_message = "料理があまりうまくいかなかった…"
+
         elif timing_lives == 1:
             satisfaction += 4
             energy += 10
             fullness += 20
             growth += 1
             event_message = "なんとか料理できた！"
+
         elif timing_lives == 2:
             satisfaction += 6
             energy += 15
             fullness += 28
             growth += 2
             event_message = "上手に料理できた！"
+
         else:
             satisfaction += 10
             energy += 20
@@ -503,7 +538,7 @@ def home(request):
         count_lives = int(request.GET.get("lives", 0))
         snack_count += 1
 
-        if request.user.is_authenticated:
+        if save_data is not None:
             save_data.action_count_count += 1
             save_data.minigame_count_play += 1
             if count_lives >= 1:
@@ -591,7 +626,7 @@ def home(request):
 
     elif action == 'rest' and can_act:
 
-        if request.user.is_authenticated:
+        if save_data is not None:
             save_data.action_rest_count += 1
 
         if energy <= 20:
@@ -613,7 +648,7 @@ def home(request):
     elif action == 'next_day' and not game_end:
         turn += 1
 
-        if request.user.is_authenticated:
+        if save_data is not None:
             save_data.action_next_day_count += 1
 
         if growth < 20:
