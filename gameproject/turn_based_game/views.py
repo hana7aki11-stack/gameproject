@@ -6,6 +6,7 @@ from .models import SaveData
 from django.contrib.auth import login
 from .forms import SignUpForm
 from django.urls import reverse
+from django.utils import timezone
 
 
 item_categories = {
@@ -53,6 +54,8 @@ def home(request):
     if request.user.is_authenticated and not request.session.get('auto_loaded', False):
         try:
             save_data = SaveData.objects.get(user=request.user)
+
+            # セッションにロード
             request.session['satisfaction'] = save_data.satisfaction
             request.session['energy'] = save_data.energy
             request.session['growth'] = save_data.growth
@@ -66,8 +69,21 @@ def home(request):
             request.session['room_wallpaper'] = save_data.room_wallpaper
             request.session['items'] = save_data.items
             request.session['placed_items'] = save_data.placed_items
+
+            # プレイ回数を+1
+            save_data.play_session_count += 1
+
+            # 育成開始日時が未設定なら記録
+            if not save_data.play_started_at:
+                save_data.play_started_at = timezone.now()
+
+            save_data.save()
+
         except SaveData.DoesNotExist:
             pass
+
+        # セッション開始時刻を記録（プレイ時間計測用）
+        request.session['session_start'] = timezone.now().isoformat()
         request.session['auto_loaded'] = True
 
     # -------------------------
@@ -110,6 +126,10 @@ def home(request):
     items = request.session['items']
     placed_items = request.session['placed_items']
     room_wallpaper = request.session['room_wallpaper']
+
+    # ゲームオーバー・育成完了判定用に現在値を保存
+    before_energy = energy
+    before_growth = growth
 
     # -------------------------
     # 成長段階ごとの最大時間
@@ -281,6 +301,13 @@ def home(request):
         score = int(request.GET.get("score", 0))
         play_count += 1
 
+        # ログ記録
+        if request.user.is_authenticated:
+            save_data.action_ball_count += 1
+            save_data.minigame_ball_play += 1
+            if score >= 10:
+                save_data.minigame_ball_success += 1
+
         if score < 10:
             satisfaction += 10
             growth += 1
@@ -304,6 +331,13 @@ def home(request):
 
         food_lives = int(request.GET.get("lives", 0))
         healthy_food_count += 1
+
+        if request.user.is_authenticated:
+            save_data.action_food_count += 1
+            save_data.minigame_food_play += 1
+            if food_lives >= 1:  # ライフ1以上で成功
+                save_data.minigame_food_success += 1
+
 
         if food_lives == 0:
             satisfaction += 5
@@ -339,6 +373,12 @@ def home(request):
         dodge_lives = int(request.GET.get("lives", 0))
         dodge_score = int(request.GET.get("score", 0))
         play_count += 1
+
+        if request.user.is_authenticated:
+            save_data.action_dodge_count += 1
+            save_data.minigame_dodge_play += 1
+            if dodge_lives >= 1:
+                save_data.minigame_dodge_success += 1
 
         if dodge_lives == 0:
             satisfaction += 3
@@ -380,6 +420,12 @@ def home(request):
         result = request.GET.get("result", "fail")
         play_count += 1
 
+        if request.user.is_authenticated:
+            save_data.action_dance_count += 1
+            save_data.minigame_dance_play += 1
+            if result == "clear":
+                save_data.minigame_dance_success += 1
+
         difficulty_bonus = {
             'easy': {'growth': 1, 'satisfaction': 8},
             'normal': {'growth': 2, 'satisfaction': 12},
@@ -407,13 +453,20 @@ def home(request):
         request.session["event_message"] = event_message
 
     # -------------------------
-    # 料理タイミング終了
+    # 火加減チャレンジ終了
     # -------------------------
 
     if action == "timing_result":
 
         timing_lives = int(request.GET.get("lives", 0))
         healthy_food_count += 1
+
+        if request.user.is_authenticated:
+            save_data.action_timing_count += 1
+            save_data.minigame_timing_play += 1
+            if timing_lives >= 1:
+                save_data.minigame_timing_success += 1
+
 
         if timing_lives == 0:
             satisfaction += 2
@@ -449,6 +502,12 @@ def home(request):
 
         count_lives = int(request.GET.get("lives", 0))
         snack_count += 1
+
+        if request.user.is_authenticated:
+            save_data.action_count_count += 1
+            save_data.minigame_count_play += 1
+            if count_lives >= 1:
+                save_data.minigame_count_success += 1
 
         if count_lives == 0:
             satisfaction += 8
@@ -531,6 +590,10 @@ def home(request):
     # -------------------------
 
     elif action == 'rest' and can_act:
+
+        if request.user.is_authenticated:
+            save_data.action_rest_count += 1
+
         if energy <= 20:
             energy += 30
             satisfaction += 10
@@ -549,6 +612,10 @@ def home(request):
 
     elif action == 'next_day' and not game_end:
         turn += 1
+
+        if request.user.is_authenticated:
+            save_data.action_next_day_count += 1
+
         if growth < 20:
             remaining_time = 6
         elif growth < 40:
@@ -704,6 +771,7 @@ def home(request):
     fullness = max(0, min(100, fullness))
     remaining_time = max(0, remaining_time)
 
+
     # ゲーム終了判定を更新
     game_end = energy <= 0 or growth >= 100
 
@@ -712,6 +780,13 @@ def home(request):
         game_status = "つかれて眠ってしまった…ゲームオーバー"
     elif growth >= 100:
         game_status = "大きく成長した！ゲームクリア！"
+
+        # クリアまでの時間を記録
+        if save_data.play_started_at:
+            clear_seconds = int(
+                (timezone.now() - save_data.play_started_at).total_seconds()
+            )
+            save_data.clear_time_seconds = clear_seconds
 
     # -------------------------
     # セッション保存
@@ -835,12 +910,100 @@ def home(request):
     else:
         time_text = f"午後{current_hour - 12}:00"
 
+    # ゲーム終了判定を更新
+    game_end = energy <= 0 or growth >= 100
+
+    game_status = ""
+    if energy <= 0:
+        game_status = "つかれて眠ってしまった…ゲームオーバー"
+    elif growth >= 100:
+        game_status = "大きく成長した！ゲームクリア！"
+
     # -------------------------
-    # 自動セーブ
+    # 自動セーブ＋ログ記録
     # -------------------------
 
     if request.user.is_authenticated:
+
+        # save_dataを取得（なければ新規作成）
         save_data, created = SaveData.objects.get_or_create(user=request.user)
+
+        # プレイ時間を累積する
+        session_start_str = request.session.get('session_start')
+        if session_start_str:
+            from datetime import datetime as dt
+            session_start = dt.fromisoformat(session_start_str)
+            now = timezone.now()
+            elapsed_seconds = int((now - session_start).total_seconds())
+            if 0 < elapsed_seconds < 3600:
+                save_data.total_play_seconds += elapsed_seconds
+            request.session['session_start'] = timezone.now().isoformat()
+
+        # ゲームオーバーのログ
+        if energy <= 0 and before_energy > 0:
+            save_data.game_over_count += 1
+
+        # 育成完了のログ
+        if growth >= 100 and before_growth < 100:
+            save_data.clear_count += 1
+            if save_data.play_started_at:
+                clear_seconds = int(
+                    (timezone.now() - save_data.play_started_at).total_seconds()
+                )
+                save_data.clear_time_seconds = clear_seconds
+
+        # ゲームの状態を保存
+        save_data.satisfaction = satisfaction
+        save_data.energy = energy
+        save_data.growth = growth
+        save_data.fullness = fullness
+        save_data.turn = turn
+        save_data.remaining_time = remaining_time
+        save_data.play_count = play_count
+        save_data.healthy_food_count = healthy_food_count
+        save_data.snack_count = snack_count
+        save_data.character_state = character_state
+        save_data.room_wallpaper = room_wallpaper
+        save_data.items = items
+        save_data.placed_items = placed_items
+        save_data.save()    # ゲーム終了判定を更新
+    game_end = energy <= 0 or growth >= 100
+
+
+    # -------------------------
+    # 自動セーブ＋ログ記録
+    # -------------------------
+
+    if request.user.is_authenticated:
+
+        # save_dataを取得（なければ新規作成）
+        save_data, created = SaveData.objects.get_or_create(user=request.user)
+
+        # プレイ時間を累積する
+        session_start_str = request.session.get('session_start')
+        if session_start_str:
+            from datetime import datetime as dt
+            session_start = dt.fromisoformat(session_start_str)
+            now = timezone.now()
+            elapsed_seconds = int((now - session_start).total_seconds())
+            if 0 < elapsed_seconds < 3600:
+                save_data.total_play_seconds += elapsed_seconds
+            request.session['session_start'] = timezone.now().isoformat()
+
+        # ゲームオーバーのログ
+        if energy <= 0 and before_energy > 0:
+            save_data.game_over_count += 1
+
+        # 育成完了のログ
+        if growth >= 100 and before_growth < 100:
+            save_data.clear_count += 1
+            if save_data.play_started_at:
+                clear_seconds = int(
+                    (timezone.now() - save_data.play_started_at).total_seconds()
+                )
+                save_data.clear_time_seconds = clear_seconds
+
+        # ゲームの状態を保存
         save_data.satisfaction = satisfaction
         save_data.energy = energy
         save_data.growth = growth
