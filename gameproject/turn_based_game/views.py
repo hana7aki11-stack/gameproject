@@ -2,7 +2,7 @@ from django.shortcuts import render, redirect
 import random
 from datetime import datetime, timedelta
 from urllib.parse import urlencode
-from .models import SaveData
+from .models import SaveData, ActionLog
 from django.contrib.auth import login
 from .forms import SignUpForm
 from django.urls import reverse
@@ -40,6 +40,20 @@ def get_difficulty_list(growth_stage):
         }
         for level in DIFFICULTY_LEVELS
     ]
+
+def log_action(user, action, turn, energy, fullness, satisfaction, growth, result=''):
+    """行動ログを1件記録する"""
+    if user.is_authenticated:
+        ActionLog.objects.create(
+            user=user,
+            action=action,
+            turn=turn,
+            energy=energy,
+            fullness=fullness,
+            satisfaction=satisfaction,
+            growth=growth,
+            result=result,
+        )
 
 
 def home(request):
@@ -806,6 +820,49 @@ def home(request):
     fullness = max(0, min(100, fullness))
     remaining_time = max(0, remaining_time)
 
+    # -------------------------
+    # 行動ログの記録
+    # -------------------------
+
+    # 記録対象の行動（ミニゲーム結果・休む・次の日へ）
+    loggable_actions = {
+        'ball_game': 'ボールキャッチ',
+        'food_result': '好きなごはん選び',
+        'dodge_result': '障害物よけ',
+        'dance_result': 'ダンスまね',
+        'timing_result': '火加減チャレンジ',
+        'count_result': '食材かぞえ',
+        'rest': '休む',
+        'next_day': '次の日へ',
+    }
+
+    if action in loggable_actions and request.user.is_authenticated:
+
+        # 結果の文字列を作成（ミニゲームの場合はスコア・ライフも記録）
+        result_str = ''
+
+        if action == 'ball_game':
+            result_str = f"スコア:{request.GET.get('score', 0)}"
+
+        elif action in ['food_result', 'dodge_result', 'timing_result', 'count_result']:
+            result_str = f"ライフ:{request.GET.get('lives', 0)}"
+
+        elif action == 'dodge_result':
+            result_str = f"ライフ:{request.GET.get('lives', 0)} スコア:{request.GET.get('score', 0)}"
+
+        elif action == 'dance_result':
+            result_str = request.GET.get('result', 'fail')
+
+        log_action(
+            user=request.user,
+            action=loggable_actions[action],
+            turn=turn,
+            energy=energy,
+            fullness=fullness,
+            satisfaction=satisfaction,
+            growth=growth,
+            result=result_str,
+        )
 
     # ゲーム終了判定を更新
     game_end = energy <= 0 or growth >= 100

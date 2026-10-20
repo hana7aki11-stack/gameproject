@@ -262,3 +262,53 @@ class SaveData(models.Model):
     class Meta:
         verbose_name = 'ゲームデータ'
         verbose_name_plural = 'ゲームデータ'
+
+
+class ActionLog(models.Model):
+
+    # どのユーザーの記録か
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        verbose_name='ユーザー'
+    )
+
+    # 何をしたか
+    action = models.CharField(
+        max_length=50,
+        verbose_name='行動'
+    )
+
+    # 行動の日時
+    timestamp = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name='日時'
+    )
+
+    # 行動時のターン数
+    turn = models.IntegerField(
+        default=1,
+        verbose_name='ターン'
+    )
+
+    # 行動時のパラメータ（行動後の値）
+    energy = models.IntegerField(default=50, verbose_name='体力')
+    fullness = models.IntegerField(default=50, verbose_name='満腹度')
+    satisfaction = models.IntegerField(default=50, verbose_name='満足度')
+    growth = models.IntegerField(default=0, verbose_name='成長度')
+
+    # ミニゲームの結果（スコア・ライフなど）
+    result = models.CharField(
+        max_length=50,
+        blank=True,
+        default='',
+        verbose_name='結果'
+    )
+
+    def __str__(self):
+        return f"{self.user.username} - {self.action} - {self.timestamp}"
+
+    class Meta:
+        verbose_name = '行動ログ'
+        verbose_name_plural = '行動ログ'
+        ordering = ['-timestamp']  # 新しい順に並べる

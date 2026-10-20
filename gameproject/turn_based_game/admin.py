@@ -1,5 +1,50 @@
 from django.contrib import admin
-from .models import SaveData
+from .models import SaveData, ActionLog
+
+
+@admin.register(ActionLog)
+class ActionLogAdmin(admin.ModelAdmin):
+
+    # 一覧画面に表示する項目
+    list_display = (
+        'user',
+        'action',
+        'turn',
+        'result',
+        'energy',
+        'fullness',
+        'satisfaction',
+        'growth',
+        'timestamp',
+    )
+
+    # 検索
+    search_fields = (
+        'user__username',
+        'action',
+    )
+
+    # 絞り込み
+    list_filter = (
+        'action',
+        'user',
+    )
+
+    # 新しい順に並べる
+    ordering = ('-timestamp',)
+
+    # 編集不可（ログは読み取り専用にする）
+    readonly_fields = (
+        'user',
+        'action',
+        'turn',
+        'energy',
+        'fullness',
+        'satisfaction',
+        'growth',
+        'result',
+        'timestamp',
+    )
 
 
 @admin.register(SaveData)
