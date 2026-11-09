@@ -837,9 +837,10 @@ pointer-events: none;
 {% endif %}
 
 
+
 <!-- リセット -->
 <form method="GET"
-      onsubmit="return confirm('本当にゲームをリセットしますか？');">
+      onsubmit="return confirm('ゲームをリセットすると、現在までに獲得した家具・アイテムもすべて消えます。本当にリセットしますか？');">
 
     <button type="submit"
             name="action"
@@ -848,6 +849,7 @@ pointer-events: none;
     </button>
 
 </form>
+
 
 {{ hint_list|json_script:"hint-data" }}
 {{ initial_speech|json_script:"initial-speech" }}
