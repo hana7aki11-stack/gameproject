@@ -18,6 +18,8 @@ class SaveData(models.Model):
         verbose_name='ユーザー'
     )
 
+
+
     # =========================
     # キャラクターの基本ステータス
     # =========================
@@ -273,6 +275,13 @@ class SaveData(models.Model):
 
     # まだ持ち物一覧で確認していない新規アイテム
     new_items = models.JSONField(default=list, verbose_name='未確認アイテム')
+
+    # 成長段階のお知らせ表示済み段階
+    notified_stage = models.IntegerField(
+        default=0,
+        verbose_name='通知済み成長段階'
+    )
+
 
 class ActionLog(models.Model):
 
