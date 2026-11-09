@@ -2,88 +2,98 @@
 {% load static %}
 
 {% block page_title %}食材かぞえ{% endblock %}
-{# ブラウザのタブに表示されるタイトル #}
+
+{% block rules %}
+<p><b>このゲームでは、たくさんの食材の中から数を数えます。</b></p>
+<p>食材がいっぱい表示されます。</p>
+<p>聞かれた食材が<b>何個あったか</b>、数字ボタンで答えてね。</p>
+<p>まちがえると❤が減ります。</p>
+{% endblock %}
 
 {% block result_label %}残りライフ{% endblock %}
 
 
 {% block extra_style %}
-{# 食材かぞえ専用のCSS #}
 
-/* 食材を表示するエリア */
 #food-display {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    align-items: center;
-    gap: 8px;
-    padding: 10px;
-    min-height: 120px;
-    font-size: 36px;
+    display:flex;
+    flex-wrap:wrap;
+    justify-content:center;
+    align-items:center;
+    gap:8px;
+    padding:10px;
+    min-height:120px;
+    font-size:clamp(24px,7vw,36px);
 }
 
-/* 数字入力ボタンエリア */
 #number-buttons {
-    display: flex;
-    justify-content: center;
-    flex-wrap: wrap;
-    gap: 8px;
-    margin-top: 8px;
+    display:flex;
+    justify-content:center;
+    flex-wrap:wrap;
+    gap:8px;
+    margin-top:8px;
 }
 
-/* 数字ボタン */
 .num-button {
-    font-size: 22px;
-    width: 60px;
-    height: 60px;
-    border-radius: 10px;
-    border: 2px solid #ccc;
-    background: rgba(255,255,255,0.7);
-    cursor: pointer;
-    touch-action: manipulation;
-    user-select: none;
+    font-size:22px;
+    width:60px;
+    height:60px;
+    border-radius:10px;
+    border:2px solid #ccc;
+    background:rgba(255,255,255,0.7);
+    cursor:pointer;
+    touch-action:manipulation;
+    user-select:none;
+    -webkit-user-select:none;
 }
 
 .num-button:active {
-    background: #c8e6c9;
+    background:#c8e6c9;
 }
 
 .num-button:disabled {
-    background: #eee;
-    color: #aaa;
-    cursor: not-allowed;
+    background:#eee;
+    color:#aaa;
+    cursor:not-allowed;
 }
 
-/* 問題文 */
 #question-text {
-    font-size: 20px;
-    font-weight: bold;
-    color: #333;
-    margin-top: 5px;
-    min-height: 28px;
+    font-size:20px;
+    font-weight:bold;
+    color:#333;
+    margin-top:5px;
+    min-height:28px;
 }
 
-/* 結果メッセージ */
 #round-message {
-    font-size: 20px;
-    font-weight: bold;
-    min-height: 28px;
-    margin-top: 4px;
+    font-size:20px;
+    font-weight:bold;
+    min-height:28px;
+    margin-top:4px;
 }
 
-/* ライフ表示 */
 #lives {
-    color: #e53935;
-    letter-spacing: 4px;
+    color:#e53935;
+    letter-spacing:4px;
 }
 
 {% endblock %}
 
 
 {% block status_extra %}
-{# ライフと進捗を表示 #}
-<div>ライフ：<span id="lives">❤❤❤</span></div>
-<div>進捗：<span id="progress">0</span> / <span id="total"></span></div>
+
+<div>
+    ライフ：
+    <span id="lives">❤❤❤</span>
+</div>
+
+<div>
+    進捗：
+    <span id="progress">0</span>
+    /
+    <span id="total"></span>
+</div>
+
 {% endblock %}
 
 
@@ -96,16 +106,24 @@
 <div id="round-message"></div>
 
 <div id="number-buttons">
-    {% for n in "0123456789" %}
-        <button class="num-button" data-num="{{ n }}">{{ n }}</button>
-    {% endfor %}
-</div>
 
-{% endblock %}
+    {% for n in "0123456789" %}
+
+        <button
+            type="button"
+            class="num-button"
+            data-num="{{ n }}">
+            {{ n }}
+        </button>
+
+      {% endfor %}
+
+  </div>
+  {% endblock %}
 
 
 {% block config %}
-{# 設定値とfood_emojisをJSに渡す（非表示） #}
+
 <div id="game-config"
      data-difficulty="{{ selected_difficulty }}"
      data-round-count="{{ round_count }}"
@@ -118,9 +136,15 @@
 </div>
 
 <div id="food-emoji-list" style="display:none;">
+
     {% for emoji in food_emojis %}
-        <span class="food-emoji-src">{{ emoji }}</span>
+
+        <span class="food-emoji-src">
+            {{ emoji }}
+        </span>
+
     {% endfor %}
+
 </div>
 
 {% endblock %}
@@ -128,278 +152,955 @@
 
 {% block script %}
 
-// 設定値を取得
-const config = document.getElementById("game-config");
+(function () {
 
-const difficulty = config.dataset.difficulty;
-const roundCount = parseInt(config.dataset.roundCount);
-const displayTime = parseInt(config.dataset.displayTime);
-const itemCount = parseInt(config.dataset.itemCount);
-const typeCount = parseInt(config.dataset.typeCount);
-const happyImage = config.dataset.happyImage;
-const damageImage = config.dataset.damageImage;
+    /* =========================================================
+       説明画面
+       ========================================================= */
 
-// 食材絵文字の一覧を取得
-const foodEmojiElements = document.querySelectorAll(".food-emoji-src");
-const allEmojis = Array.from(foodEmojiElements).map(el => el.textContent.trim());
+    const originalStartCountdown =
+        window.startCountdown;
 
-// キャラクター画像
-const character = document.getElementById("character");
-const normalImage = "{% static character_image %}";
+    window.startCountdown = function (callback) {
 
-// 表示要素を取得
-const foodDisplay = document.getElementById("food-display");
-const questionText = document.getElementById("question-text");
-const roundMessage = document.getElementById("round-message");
-const progressDisplay = document.getElementById("progress");
-const totalDisplay = document.getElementById("total");
-const livesDisplay = document.getElementById("lives");
-const timeDisplay = document.getElementById("time");
+        const rulesScreen =
+            document.getElementById("rules-screen");
 
-totalDisplay.textContent = roundCount;
+        const rulesBody =
+            document.getElementById("rules-body");
 
-// -------------------------
-// ゲーム状態の管理
-// -------------------------
+        const rulesStart =
+            document.getElementById("rules-start");
 
-let lives = 3;
-let currentRound = 0;
-let correctAnswer = 0;
-let gameEnded = false;
-let buttonsEnabled = false;
+        const countdownScreen =
+            document.getElementById("countdown-screen");
 
-// -------------------------
-// キャラクター画像の切り替え
-// -------------------------
+        const storageKey =
+            "minigame_intro_seen_count_game";
 
-function showHappyCharacter() {
-    character.src = happyImage;
-    setTimeout(function () { character.src = normalImage; }, 400);
-}
+        let seen = false;
 
-function showDamageCharacter() {
-    character.src = damageImage;
-    setTimeout(function () { character.src = normalImage; }, 400);
-}
+        try {
+            seen =
+                localStorage.getItem(storageKey) === "1";
+        } catch (e) {}
 
-// -------------------------
-// 数字ボタンの有効・無効を切り替え
-// -------------------------
+        if (!rulesScreen || !rulesBody || !rulesStart) {
+            originalStartCountdown(callback);
+            return;
+        }
 
-function setButtonsEnabled(enabled) {
+        countdownScreen.style.display =
+            "none";
 
-    buttonsEnabled = enabled;
+        const originalRules =
+            rulesBody.innerHTML;
 
-    document.querySelectorAll(".num-button").forEach(function (btn) {
-        btn.disabled = !enabled;
-    });
-}
+        if (!seen) {
 
-// -------------------------
-// 1ラウンドの準備
-// -------------------------
+            rulesBody.innerHTML =
+                originalRules;
 
-function setupRound() {
+            rulesScreen.style.display =
+                "flex";
 
-    setButtonsEnabled(false);
-    roundMessage.textContent = "";
-    foodDisplay.textContent = "";
-    foodDisplay.style.fontSize = "36px";
+            rulesStart.style.display =
+                "block";
 
-    // 今回使う食材の種類をランダムに選ぶ
-    const shuffled = allEmojis.slice().sort(function () { return Math.random() - 0.5; });
-    const usedEmojis = shuffled.slice(0, typeCount);
+            rulesStart.textContent =
+                "わかった！スタート";
 
-    const targetEmoji = usedEmojis[0];
+            rulesStart.onclick =
+                function () {
 
-    const items = [];
-    let targetCount = 0;
+                    try {
+                        localStorage.setItem(
+                            storageKey,
+                            "1"
+                        );
+                    } catch (e) {}
 
-    for (let i = 0; i < itemCount; i++) {
-        const emoji = usedEmojis[Math.floor(Math.random() * usedEmojis.length)];
-        items.push(emoji);
-        if (emoji === targetEmoji) targetCount++;
+                    rulesScreen.style.display =
+                        "none";
+
+                    runCountdown(callback);
+                };
+
+        } else {
+
+            rulesBody.innerHTML =
+                '<div style="text-align:center;">' +
+                '<p style="font-weight:bold;">ゲームの説明を見ますか？</p>' +
+                '<div style="display:flex;gap:10px;margin-top:15px;">' +
+                '<button type="button" id="rules-view" style="flex:1;font-size:18px;padding:12px;border:none;border-radius:10px;background:#42a5f5;color:white;">説明を見る</button>' +
+                '<button type="button" id="rules-skip" style="flex:1;font-size:18px;padding:12px;border:none;border-radius:10px;background:#aaa;color:white;">スキップ</button>' +
+                '</div>' +
+                '</div>';
+
+            rulesScreen.style.display =
+                "flex";
+
+            rulesStart.style.display =
+                "none";
+
+            document.getElementById(
+                "rules-view"
+            ).onclick = function () {
+
+                rulesBody.innerHTML =
+                    originalRules;
+
+                rulesStart.style.display =
+                    "block";
+
+                rulesStart.textContent =
+                    "わかった！スタート";
+
+                rulesStart.onclick =
+                    function () {
+
+                        rulesScreen.style.display =
+                            "none";
+
+                        runCountdown(callback);
+                    };
+            };
+
+            document.getElementById(
+                "rules-skip"
+            ).onclick = function () {
+
+                rulesScreen.style.display =
+                    "none";
+
+                runCountdown(callback);
+            };
+        }
+    };
+
+
+    /* =========================================================
+       設定値
+       ========================================================= */
+
+    const config =
+        document.getElementById(
+            "game-config"
+        );
+
+    const difficulty =
+        config.dataset.difficulty || "easy";
+
+
+    let roundCount =
+        parseInt(
+            config.dataset.roundCount
+        );
+
+    let displayTime =
+        parseInt(
+            config.dataset.displayTime
+        );
+
+    let itemCount =
+        parseInt(
+            config.dataset.itemCount
+        );
+
+    let typeCount =
+        parseInt(
+            config.dataset.typeCount
+        );
+
+
+    if (
+        !Number.isFinite(roundCount) ||
+        roundCount < 1
+    ) {
+        roundCount = 1;
     }
 
-    if (targetCount === 0) {
-        items[0] = targetEmoji;
-        targetCount = 1;
+    if (
+        !Number.isFinite(displayTime) ||
+        displayTime < 100
+    ) {
+        displayTime = 3000;
     }
 
-    correctAnswer = targetCount;
-
-    questionText.textContent = "「" + targetEmoji + "」は何個ある？";
-
-    items.forEach(function (emoji) {
-        const span = document.createElement("span");
-        span.textContent = emoji;
-        foodDisplay.appendChild(span);
-    });
-
-    // -------------------------
-// 暗記タイマーのカウントダウン表示
-// -------------------------
-
-let remaining = Math.floor(displayTime / 1000);
-
-// game_base.html の「残り時間：」欄に表示する
-timeDisplay.textContent = remaining;
-
-const memTimer = setInterval(function () {
-
-    remaining--;
-
-    if (remaining > 0) {
-        timeDisplay.textContent = remaining;
-    } else {
-        clearInterval(memTimer);
-        timeDisplay.textContent = "0";
+    if (
+        !Number.isFinite(itemCount) ||
+        itemCount < 1
+    ) {
+        itemCount = 1;
     }
 
-}, 1000);
-
-// displayTime後に食材を隠す
-setTimeout(function () {
-
-    clearInterval(memTimer);
-    timeDisplay.textContent = "0";
-
-    foodDisplay.textContent = "？？？";
-    foodDisplay.style.fontSize = "48px";
-
-    setButtonsEnabled(true);
-
-}, displayTime);
-}
-
-// -------------------------
-// 回答処理
-// -------------------------
-
-function handleAnswer(num) {
-
-    if (!buttonsEnabled || gameEnded) return;
-
-    setButtonsEnabled(false);
-    foodDisplay.style.fontSize = "36px";
-
-    if (num === correctAnswer) {
-
-        // 正解
-        roundMessage.textContent = `✓ 正解！（${correctAnswer}個）`;
-        roundMessage.style.color = "#4caf50";
-        showHappyCharacter();
-
-    } else {
-
-        // 不正解
-        lives--;
-        livesDisplay.textContent = "❤".repeat(Math.max(lives, 0)) +
-                                    "🖤".repeat(3 - Math.max(lives, 0));
-        roundMessage.textContent = `✗ 不正解… 正解は${correctAnswer}個`;
-        roundMessage.style.color = "#e53935";
-        showDamageCharacter();
+    if (
+        !Number.isFinite(typeCount) ||
+        typeCount < 1
+    ) {
+        typeCount = 1;
     }
 
-    currentRound++;
-    progressDisplay.textContent = currentRound;
 
-    if (lives <= 0) {
+    /* =========================================================
+       食材
+       ========================================================= */
 
-        setTimeout(function () { endGame(); }, 1000);
+    const foodEmojiElements =
+        document.querySelectorAll(
+            ".food-emoji-src"
+        );
 
-    } else if (currentRound >= roundCount) {
+    const allEmojis =
+        Array.from(
+            foodEmojiElements
+        )
+        .map(
+            function (el) {
+                return el.textContent.trim();
+            }
+        )
+        .filter(Boolean);
 
-        setTimeout(function () { endGame(); }, 1000);
 
-    } else {
+    if (allEmojis.length === 0) {
 
-        // 次のラウンドへ
-        setTimeout(function () {
-            questionText.textContent = "";
-            foodDisplay.textContent = "";
-            foodDisplay.style.fontSize = "36px";
+        console.error(
+            "food_emojis がありません。"
+        );
+    }
+
+
+    typeCount =
+        Math.min(
+            typeCount,
+            allEmojis.length
+        );
+
+
+    /* =========================================================
+       画像
+       ========================================================= */
+
+    const happyImage =
+        config.dataset.happyImage;
+
+    const damageImage =
+        config.dataset.damageImage;
+
+    const character =
+        document.getElementById(
+            "character"
+        );
+
+    const normalImage =
+        "{% static character_image %}";
+
+
+    /* =========================================================
+       要素
+       ========================================================= */
+
+    const foodDisplay =
+        document.getElementById(
+            "food-display"
+        );
+
+    const questionText =
+        document.getElementById(
+            "question-text"
+        );
+
+    const roundMessage =
+        document.getElementById(
+            "round-message"
+        );
+
+    const progressDisplay =
+        document.getElementById(
+            "progress"
+        );
+
+    const totalDisplay =
+        document.getElementById(
+            "total"
+        );
+
+    const livesDisplay =
+        document.getElementById(
+            "lives"
+        );
+
+    const timeDisplay =
+        document.getElementById(
+            "time"
+        );
+
+
+    totalDisplay.textContent =
+        roundCount;
+
+
+    /* =========================================================
+       状態
+       ========================================================= */
+
+    let lives = 3;
+
+    let currentRound = 0;
+
+    let correctAnswer = 0;
+
+    let gameEnded = false;
+
+    let buttonsEnabled = false;
+
+    let memoryTimer = null;
+
+    let memoryTimeout = null;
+
+    let nextRoundTimer = null;
+
+
+    /* =========================================================
+       キャラクター
+       ========================================================= */
+
+    function showHappyCharacter() {
+
+        if (gameEnded) {
+            return;
+        }
+
+        character.src =
+            happyImage;
+
+        setTimeout(
+            function () {
+
+                if (!gameEnded) {
+                    character.src =
+                        normalImage;
+                }
+
+            },
+            400
+        );
+    }
+
+
+    function showDamageCharacter() {
+
+        if (gameEnded) {
+            return;
+        }
+
+        character.src =
+            damageImage;
+
+        setTimeout(
+            function () {
+
+                if (!gameEnded) {
+                    character.src =
+                        normalImage;
+                }
+
+            },
+            400
+        );
+    }
+
+
+    /* =========================================================
+       数字ボタン
+       ========================================================= */
+
+    function setButtonsEnabled(
+        enabled
+    ) {
+
+        buttonsEnabled =
+            enabled;
+
+        document
+            .querySelectorAll(
+                ".num-button"
+            )
+            .forEach(
+                function (btn) {
+
+                    btn.disabled =
+                        !enabled;
+                }
+            );
+    }
+
+
+    /* =========================================================
+       シャッフル
+       ========================================================= */
+
+    function shuffleArray(array) {
+
+        const result =
+            array.slice();
+
+        for (
+            let i =
+                result.length - 1;
+            i > 0;
+            i--
+        ) {
+
+            const j =
+                Math.floor(
+                    Math.random() *
+                    (i + 1)
+                );
+
+            const temp =
+                result[i];
+
+            result[i] =
+                result[j];
+
+            result[j] =
+                temp;
+        }
+
+        return result;
+    }
+
+
+    /* =========================================================
+       ラウンド準備
+       ========================================================= */
+
+    function setupRound() {
+
+        if (
+            gameEnded ||
+            allEmojis.length === 0
+        ) {
+            endGame();
+            return;
+        }
+
+
+        clearInterval(
+            memoryTimer
+        );
+
+        clearTimeout(
+            memoryTimeout
+        );
+
+
+        setButtonsEnabled(
+            false
+        );
+
+        roundMessage.textContent =
+            "";
+
+        foodDisplay.textContent =
+            "";
+
+        foodDisplay.style.fontSize =
+            "";
+
+
+        const shuffled =
+            shuffleArray(
+                allEmojis
+            );
+
+
+        const usedEmojis =
+            shuffled.slice(
+                0,
+                Math.max(
+                    1,
+                    typeCount
+                )
+            );
+
+
+        if (
+            usedEmojis.length === 0
+        ) {
+            endGame();
+            return;
+        }
+
+
+        const targetEmoji =
+            usedEmojis[0];
+
+
+        const items = [];
+
+        let targetCount = 0;
+
+
+        for (
+            let i = 0;
+            i < itemCount;
+            i++
+        ) {
+
+            const emoji =
+                usedEmojis[
+                    Math.floor(
+                        Math.random() *
+                        usedEmojis.length
+                    )
+                ];
+
+            items.push(emoji);
+
+            if (
+                emoji ===
+                targetEmoji
+            ) {
+                targetCount++;
+            }
+        }
+
+
+        if (
+            targetCount === 0 &&
+            items.length > 0
+        ) {
+
+            items[0] =
+                targetEmoji;
+
+            targetCount = 1;
+        }
+
+
+        correctAnswer =
+            targetCount;
+
+
+        questionText.textContent =
+            "「" +
+            targetEmoji +
+            "」は何個ある？";
+
+
+        items.forEach(
+            function (emoji) {
+
+                const span =
+                    document.createElement(
+                        "span"
+                    );
+
+                span.textContent =
+                    emoji;
+
+                foodDisplay.appendChild(
+                    span
+                );
+            }
+        );
+
+
+        /* =====================================================
+           暗記タイマー
+           displayTimeは既存仕様どおりミリ秒
+           ===================================================== */
+
+        let remaining =
+            Math.max(
+                1,
+                Math.ceil(
+                    displayTime /
+                    1000
+                )
+            );
+
+
+        timeDisplay.textContent =
+            remaining;
+
+
+        memoryTimer =
+            setInterval(
+                function () {
+
+                    if (gameEnded) {
+
+                        clearInterval(
+                            memoryTimer
+                        );
+
+                        return;
+                    }
+
+                    remaining--;
+
+                    if (
+                        remaining > 0
+                    ) {
+
+                        timeDisplay.textContent =
+                            remaining;
+
+                    } else {
+
+                        clearInterval(
+                            memoryTimer
+                        );
+
+                        memoryTimer =
+                            null;
+
+                        timeDisplay.textContent =
+                            "0";
+                    }
+
+                },
+                1000
+            );
+
+
+        memoryTimeout =
+            setTimeout(
+                function () {
+
+                    if (gameEnded) {
+                        return;
+                    }
+
+                    clearInterval(
+                        memoryTimer
+                    );
+
+                    memoryTimer =
+                        null;
+
+                    timeDisplay.textContent =
+                        "0";
+
+
+                    foodDisplay.textContent =
+                        "？？？";
+
+                    foodDisplay.style.fontSize =
+                        "48px";
+
+
+                    setButtonsEnabled(
+                        true
+                    );
+
+                },
+                displayTime
+            );
+    }
+
+
+    /* =========================================================
+       回答
+       ========================================================= */
+
+    function handleAnswer(num) {
+
+        if (
+            !buttonsEnabled ||
+            gameEnded
+        ) {
+            return;
+        }
+
+
+        setButtonsEnabled(
+            false
+        );
+
+
+        if (
+            num === correctAnswer
+        ) {
+
+            roundMessage.textContent =
+                "✓ 正解！（" +
+                correctAnswer +
+                "個）";
+
+            roundMessage.style.color =
+                "#4caf50";
+
+            showHappyCharacter();
+
+        } else {
+
+            lives--;
+
+            livesDisplay.textContent =
+                "❤".repeat(
+                    Math.max(
+                        lives,
+                        0
+                    )
+                ) +
+                "🖤".repeat(
+                    Math.max(
+                        0,
+                        3 -
+                        Math.max(
+                            lives,
+                            0
+                        )
+                    )
+                );
+
+
+            roundMessage.textContent =
+                "✗ 不正解… 正解は" +
+                correctAnswer +
+                "個";
+
+            roundMessage.style.color =
+                "#e53935";
+
+            showDamageCharacter();
+        }
+
+
+        currentRound++;
+
+        progressDisplay.textContent =
+            currentRound;
+
+
+        if (
+            lives <= 0 ||
+            currentRound >= roundCount
+        ) {
+
+            setTimeout(
+                endGame,
+                1000
+            );
+
+        } else {
+
+            nextRoundTimer =
+                setTimeout(
+                    function () {
+
+                        if (gameEnded) {
+                            return;
+                        }
+
+                        questionText.textContent =
+                            "";
+
+                        foodDisplay.textContent =
+                            "";
+
+                        setupRound();
+
+                    },
+                    1200
+                );
+        }
+    }
+
+
+    /* =========================================================
+       数字ボタン
+       ========================================================= */
+
+    document
+        .querySelectorAll(
+            ".num-button"
+        )
+        .forEach(
+            function (btn) {
+
+                btn.addEventListener(
+                    "click",
+                    function (e) {
+
+                        e.preventDefault();
+
+                        if (
+                            btn.disabled
+                        ) {
+                            return;
+                        }
+
+                        handleAnswer(
+                            parseInt(
+                                btn.dataset.num
+                            )
+                        );
+                    }
+                );
+            }
+        );
+
+
+    /* =========================================================
+       終了
+       ========================================================= */
+
+    function endGame() {
+
+        if (gameEnded) {
+            return;
+        }
+
+        gameEnded = true;
+
+
+        clearInterval(
+            memoryTimer
+        );
+
+        clearTimeout(
+            memoryTimeout
+        );
+
+        clearTimeout(
+            nextRoundTimer
+        );
+
+
+        memoryTimer = null;
+        memoryTimeout = null;
+        nextRoundTimer = null;
+
+
+        setButtonsEnabled(
+            false
+        );
+
+
+        const backButton =
+            document.getElementById(
+                "back-button"
+            );
+
+        if (backButton) {
+
+            backButton.style.pointerEvents =
+                "none";
+
+            backButton.style.opacity =
+                "0.4";
+        }
+
+
+        const finalLives =
+            Math.max(
+                lives,
+                0
+            );
+
+
+        let resultImg;
+        let resultMsg;
+
+
+        if (finalLives === 3) {
+
+            resultImg =
+                happyImage;
+
+            resultMsg =
+                "ぜんもんせいかい！かんさつりょくさいこう！";
+
+        } else if (finalLives === 2) {
+
+            resultImg =
+                happyImage;
+
+            resultMsg =
+                "よく数えられたよ！";
+
+        } else if (finalLives === 1) {
+
+            resultImg =
+                normalImage;
+
+            resultMsg =
+                "もうすこしでぜんもんせいかいだったのに…";
+
+        } else {
+
+            resultImg =
+                damageImage;
+
+            resultMsg =
+                "むずかしかった…もう一回かぞえてみよう！";
+        }
+
+
+        showResultFeedback(
+            resultImg,
+            resultMsg
+        );
+
+
+        document.getElementById(
+            "game-over"
+        ).style.display =
+            "flex";
+
+        document.getElementById(
+            "final-score"
+        ).textContent =
+            "❤".repeat(
+                finalLives
+            );
+
+
+        setTimeout(
+            function () {
+
+                window.location.href =
+                    "{% url 'home' %}" +
+                    "?action=count_result" +
+                    "&lives=" +
+                    finalLives +
+                    "&difficulty=" +
+                    encodeURIComponent(
+                        difficulty
+                    );
+
+            },
+            3000
+        );
+    }
+
+
+    /* =========================================================
+       開始
+       ========================================================= */
+
+    setButtonsEnabled(
+        false
+    );
+
+
+    startCountdown(
+        function () {
+
+            if (gameEnded) {
+                return;
+            }
+
             setupRound();
-        }, 1200);
-    }
-}
+        }
+    );
 
-// -------------------------
-// 数字ボタンのイベント登録
-// -------------------------
-
-document.querySelectorAll(".num-button").forEach(function (btn) {
-
-    btn.addEventListener("touchstart", function (e) {
-        e.preventDefault();
-        handleAnswer(parseInt(btn.dataset.num));
-    });
-
-    btn.addEventListener("click", function () {
-        handleAnswer(parseInt(btn.dataset.num));
-    });
-});
-
-// -------------------------
-// ゲーム終了処理
-// -------------------------
-
-function endGame() {
-
-    if (gameEnded) return;
-    gameEnded = true;
-
-    setButtonsEnabled(false);
-
-    // 戻るボタンを無効化
-    document.getElementById("back-button").style.pointerEvents = "none";
-    document.getElementById("back-button").style.opacity = "0.4";
-
-    const finalLives = Math.max(lives, 0);
-
-const normalImg = "{% static character_image %}";
-const happyImg = "{% static character_happy_image %}";
-const tiredImg = "{% static character_damage_image %}";
-
-let resultImg, resultMsg;
-
-if (finalLives === 3) {
-    resultImg = happyImg;
-    resultMsg = "ぜんもんせいかい！かんさつりょくさいこう！";
-} else if (finalLives === 2) {
-    resultImg = happyImg;
-    resultMsg = "よく数えられたよ！";
-} else if (finalLives === 1) {
-    resultImg = normalImg;
-    resultMsg = "もうすこしでぜんもんせいかいだったのに…";
-} else {
-    resultImg = tiredImg;
-    resultMsg = "むずかしかった…もう一回かぞえてみよう！";
-}
-
-showResultFeedback(resultImg, resultMsg);
-
-
-    document.getElementById("game-over").style.display = "flex";
-    document.getElementById("final-score").textContent = "❤".repeat(finalLives);
-
-    setTimeout(function () {
-
-        window.location.href =
-            "{% url 'home' %}?action=count_result&lives=" + finalLives +
-            "&difficulty=" + difficulty;
-
-    }, 3000);
-}
-
-// -------------------------
-// カウントダウン後にゲーム開始
-// -------------------------
-
-setButtonsEnabled(false);
-
-startCountdown(function () {
-    setupRound();
-});
+})();
 
 {% endblock %}

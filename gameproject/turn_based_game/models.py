@@ -4,6 +4,11 @@ from django.contrib.auth.models import User
 
 class SaveData(models.Model):
 
+    has_started_game = models.BooleanField(
+        default=False,
+        verbose_name='ニューゲーム開始済み'
+    )
+
     # =========================
     # ユーザー
     # =========================
@@ -45,7 +50,7 @@ class SaveData(models.Model):
     )
 
     remaining_time = models.IntegerField(
-        default=6,
+        default=12,
         verbose_name='残り時間'
     )
 
@@ -263,6 +268,11 @@ class SaveData(models.Model):
         verbose_name = 'ゲームデータ'
         verbose_name_plural = 'ゲームデータ'
 
+    # チュートリアル進行（0=イントロ前, 1〜3=チュートリアル中, 4=完了）
+    tutorial_step = models.IntegerField(default=0, verbose_name='チュートリアル進行')
+
+    # まだ持ち物一覧で確認していない新規アイテム
+    new_items = models.JSONField(default=list, verbose_name='未確認アイテム')
 
 class ActionLog(models.Model):
 

@@ -5,126 +5,134 @@
 
 {% block result_label %}残りライフ{% endblock %}
 
+{% block rules %}
+<p><b>このゲームでは、火加減を調整します。</b></p>
+<p>🔥 が左右に動きます。</p>
+<p>🔥の<b>まんなか</b>が<b style="color:#2e7d32;">緑の枠</b>に入った瞬間に「この火加減！」をタップ！</p>
+<p>ずれると❤が減ります。</p>
+{% endblock %}
+
 
 {% block extra_style %}
 
-/* 料理工程名 */
-#cooking-step {
-    font-size: 18px;
-    font-weight: bold;
-    color: #333;
-    min-height: 28px;
-    margin-bottom: 4px;
+#cooking-step{
+    font-size:clamp(16px,4.5vw,20px);
+    font-weight:bold;
+    color:#333;
+    min-height:26px;
+    margin-top:6px;
 }
 
-/* 鍋表示 */
-#pot-display {
-    font-size: 60px;
-    margin-bottom: 0;
+#pot-display{
+    font-size:clamp(36px,10vw,56px);
+    line-height:1.2;
 }
 
-/* 炎メーターのラッパー */
-#flame-meter-wrapper {
-    display: flex;
-    align-items: stretch;
-    justify-content: center;
-    gap: 12px;
-    margin: 8px auto;
+#guide-text{
+    font-size:clamp(14px,3.8vw,18px);
+    font-weight:bold;
+    color:#2e7d32;
+    margin:4px 0;
 }
 
-/* 強火・弱火ラベル */
-#flame-labels {
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    font-size: 12px;
-    color: #666;
-    padding: 4px 0;
-    text-align: center;
-}
-
-/* 炎メーター本体 */
-#flame-meter {
-    width: 60px;
-    height: 200px;
-    border-radius: 30px;
-    position: relative;
-    border: 3px solid #ccc;
-    overflow: hidden;
-    background: linear-gradient(
-        to top,
+#flame-meter{
+    position:relative;
+    width:92%;
+    height:64px;
+    margin:6px auto 0;
+    border:3px solid #999;
+    border-radius:32px;
+    box-sizing:border-box;
+    overflow:hidden;
+    background:linear-gradient(
+        to right,
         #90caf9 0%,
-        #fff176 45%,
+        #fff176 40%,
         #ffa726 70%,
         #e53935 100%
     );
 }
 
-/* 成功ゾーン（緑枠） */
-#success-zone-flame {
-    position: absolute;
-    width: 100%;
-    left: 0;
-    border: 3px solid #4caf50;
-    background: rgba(76, 175, 80, 0.35);
-    box-sizing: border-box;
+#success-zone-flame{
+    position:absolute;
+    top:0;
+    height:100%;
+    box-sizing:border-box;
+    border:4px solid #2e7d32;
+    background:rgba(76,175,80,0.45);
 }
 
-/* 炎インジケーター（動く炎） */
-#flame-indicator {
-    position: absolute;
-    font-size: 30px;
-    left: 50%;
-    transform: translateX(-50%);
-    line-height: 1;
+#flame-indicator{
+    position:absolute;
+    top:50%;
+    font-size:40px;
+    line-height:1;
+    transform:translate(-50%,-50%);
+    pointer-events:none;
 }
 
-/* 炎の強さ絵文字 */
-#flame-emoji-display {
-    font-size: 36px;
-    min-height: 44px;
-    margin-top: 4px;
+#flame-labels{
+    display:flex;
+    justify-content:space-between;
+    width:92%;
+    margin:2px auto 0;
+    font-size:13px;
+    color:#555;
 }
 
-
-/* タップボタン */
-#tap-button {
-    font-size: 22px;
-    padding: 12px 40px;
-    border-radius: 15px;
-    border: none;
-    background: #ff7043;
-    color: white;
-    cursor: pointer;
-    margin-top: 8px;
-    touch-action: manipulation;
-    user-select: none;
-    -webkit-user-select: none;
+#round-message{
+    font-size:20px;
+    font-weight:bold;
+    min-height:28px;
+    margin:8px 0;
 }
 
-#tap-button:active {
-    background: #e64a19;
+#tap-button{
+    width:80%;
+    max-width:360px;
+    font-size:22px;
+    padding:16px;
+    border:none;
+    border-radius:15px;
+    background:#ff7043;
+    color:white;
+    touch-action:manipulation;
+    user-select:none;
+    -webkit-user-select:none;
 }
 
-#tap-button:disabled {
-    background: #bbb;
-    cursor: not-allowed;
+#tap-button:active{
+    background:#e64a19;
 }
 
-/* ライフ */
-#lives {
-    color: #e53935;
-    letter-spacing: 4px;
+#tap-button:disabled{
+    background:#bbb;
+}
+
+#lives{
+    color:#e53935;
+    letter-spacing:4px;
 }
 
 {% endblock %}
 
 
 {% block status_extra %}
-{# タイマー表示を残りラウンド数に上書き #}
-<div>ライフ：<span id="lives">❤❤❤</span></div>
-<div>進捗：<span id="progress">0</span> / <span id="total"></span></div>
+
+<div>
+    ライフ：
+    <span id="lives">❤❤❤</span>
+</div>
+
+<div>
+    進捗：
+    <span id="progress">0</span>
+    /
+    <span id="total"></span>
+</div>
+
 {% endblock %}
+
 
 {% block game_area %}
 
@@ -132,38 +140,46 @@
 
 <div id="pot-display">🍳</div>
 
-<div id="flame-meter-wrapper">
+<div id="guide-text">
+    🔥のまんなかを、緑の枠に合わせよう！
+</div>
 
-    <div id="flame-meter">
-        <div id="success-zone-flame"></div>
-        <div id="flame-indicator">🔥</div>
-    </div>
+<div id="flame-meter">
 
-    <div id="flame-labels">
-        <span>強火<br>🔴</span>
-        <span>🔵<br>弱火</span>
+    <div id="success-zone-flame"></div>
+
+    <div id="flame-indicator">
+        🔥
     </div>
 
 </div>
 
-<div id="flame-emoji-display">🔥</div>
+<div id="flame-labels">
+    <span>🔵 弱火</span>
+    <span>強火 🔴</span>
+</div>
 
 {% endblock %}
 
+
 {% block character_area %}
 
-<div style="text-align:center; margin-top:10px;">
+<div style="text-align:center;margin-top:8px;">
 
-    <img src="{% static character_image %}" id="character" style="height:120px;">
+    <img
+        src="{% static character_image %}"
+        id="character"
+        class="char-img"
+        alt="キャラクター"
+    >
 
-    <div id="round-message" style="
-        font-size: 20px;
-        font-weight: bold;
-        min-height: 28px;
-        margin: 8px 0;
-    "></div>
+    <div id="round-message"></div>
 
-    <button id="tap-button">この火加減！</button>
+    <button
+        type="button"
+        id="tap-button">
+        この火加減！
+    </button>
 
 </div>
 
@@ -171,314 +187,873 @@
 
 
 {% block config %}
-<div id="game-config"
-     data-difficulty="{{ selected_difficulty }}"
-     data-round-count="{{ round_count }}"
-     data-speed="{{ speed }}"
-     data-zone-width="{{ zone_width }}"
-     data-happy-image="{% static character_happy_image %}"
-     data-damage-image="{% static character_damage_image %}"
-     style="display:none;">
+
+<div
+    id="game-config"
+    data-difficulty="{{ selected_difficulty }}"
+    data-round-count="{{ round_count }}"
+    data-speed="{{ speed }}"
+    data-zone-width="{{ zone_width }}"
+    data-happy-image="{% static character_happy_image %}"
+    data-damage-image="{% static character_damage_image %}"
+    style="display:none;">
 </div>
+
 {% endblock %}
 
 
 {% block script %}
-// このゲームはラウンド制のため残り時間表示を非表示にする
-document.getElementById("time").parentElement.style.display = "none";
 
-// 設定値を取得
-const config = document.getElementById("game-config");
+(function () {
 
-const difficulty = config.dataset.difficulty;
-const roundCount = parseInt(config.dataset.roundCount);
-const speed = parseFloat(config.dataset.speed);
-const zoneWidth = parseInt(config.dataset.zoneWidth);
-const happyImage = config.dataset.happyImage;
-const damageImage = config.dataset.damageImage;
 
-// 炎メーターの高さ（CSSのheight:200pxと合わせた固定値）
-const METER_HEIGHT = 200;
 
-// キャラクター画像
-const character = document.getElementById("character");
-const normalImage = "{% static character_image %}";
+    /* =========================================================
+       残り時間表示を非表示
+       ========================================================= */
 
-// 表示要素を取得
-const flameMeter = document.getElementById("flame-meter");
-const successZoneFlame = document.getElementById("success-zone-flame");
-const flameIndicator = document.getElementById("flame-indicator");
-const flameEmojiDisplay = document.getElementById("flame-emoji-display");
-const tapButton = document.getElementById("tap-button");
-const roundMessage = document.getElementById("round-message");
-const cookingStep = document.getElementById("cooking-step");
-const progressDisplay = document.getElementById("progress");
-const totalDisplay = document.getElementById("total");
-const livesDisplay = document.getElementById("lives");
+    const timeElement =
+        document.getElementById("time");
 
-totalDisplay.textContent = roundCount;
-
-// -------------------------
-// 料理工程の名前（ラウンドごとに表示）
-// -------------------------
-
-const COOKING_STEPS = [
-    "下ごしらえ 🥕",
-    "強火で炒める 🥘",
-    "水を加える 💧",
-    "弱火で煮込む ♨️",
-    "味付け 🧂",
-    "仕上げ ✨",
-];
-
-// -------------------------
-// ゲーム状態の管理
-// -------------------------
-
-let lives = 3;
-let currentRound = 0;
-let gameEnded = false;
-let animationId = null;
-let indicatorY = 0;
-let directionY = 1;
-let zoneRange = { bottom: 0, top: 0 };
-let isAnimating = false;
-
-// -------------------------
-// 成功ゾーンをランダムな位置に設定
-// -------------------------
-
-function setupSuccessZone() {
-
-    // METER_HEIGHT（固定値）を使って計算する
-    const maxBottom = METER_HEIGHT - zoneWidth - 10;
-    const zoneBottom = Math.max(5, Math.random() * maxBottom);
-
-    successZoneFlame.style.height = zoneWidth + "px";
-    successZoneFlame.style.bottom = zoneBottom + "px";
-
-    return { bottom: zoneBottom, top: zoneBottom + zoneWidth };
-}
-
-// -------------------------
-// 炎の強さ絵文字を更新（位置に応じて変化）
-// -------------------------
-
-function updateFlameEmoji(ratio) {
-
-    if (ratio < 0.25) {
-        flameEmojiDisplay.textContent = "🔵";
-    } else if (ratio < 0.5) {
-        flameEmojiDisplay.textContent = "🔥";
-    } else if (ratio < 0.75) {
-        flameEmojiDisplay.textContent = "🔥🔥";
-    } else {
-        flameEmojiDisplay.textContent = "🔥🔥🔥";
-    }
-}
-
-// -------------------------
-// 炎インジケーターのアニメーション
-// -------------------------
-
-function animateFlame() {
-
-    // gameEnded または isAnimating=false なら止める
-    if (gameEnded || !isAnimating) return;
-
-    const movableHeight = METER_HEIGHT - 30;
-
-    indicatorY += speed * 2.5 * directionY;
-
-    if (indicatorY >= movableHeight) {
-        indicatorY = movableHeight;
-        directionY = -1;
-    } else if (indicatorY <= 0) {
-        indicatorY = 0;
-        directionY = 1;
+    if (
+        timeElement &&
+        timeElement.parentElement
+    ) {
+        timeElement.parentElement.style.display =
+            "none";
     }
 
-    flameIndicator.style.bottom = indicatorY + "px";
 
-    const ratio = indicatorY / movableHeight;
-    updateFlameEmoji(ratio);
+    /* =========================================================
+       設定値
+       ========================================================= */
 
-    animationId = requestAnimationFrame(animateFlame);
-}
+    const config =
+        document.getElementById(
+            "game-config"
+        );
 
-// -------------------------
-// キャラクター画像の切り替え
-// -------------------------
+    if (!config) {
+        console.error(
+            "game-config が見つかりません。"
+        );
+        return;
+    }
 
-function showHappyCharacter() {
-    character.src = happyImage;
-    setTimeout(function () { character.src = normalImage; }, 400);
-}
 
-function showDamageCharacter() {
-    character.src = damageImage;
-    setTimeout(function () { character.src = normalImage; }, 400);
-}
+    const difficulty =
+        config.dataset.difficulty || "easy";
 
-// -------------------------
-// タップ処理
-// -------------------------
 
-function handleTap() {
+    let roundCount =
+        parseInt(
+            config.dataset.roundCount,
+            10
+        );
 
-    if (gameEnded) return;
 
-    tapButton.disabled = true;
-    cancelAnimationFrame(animationId);
+    let speed =
+        parseFloat(
+            config.dataset.speed
+        );
 
-// フラグを下げてからキャンセルすることで確実に止まる
-    isAnimating = false;
-    cancelAnimationFrame(animationId);
 
-    // 成功ゾーン内にいるか判定
-    const movableHeight = METER_HEIGHT - 30;
-    const inZone = indicatorY >= zoneRange.bottom && indicatorY <= zoneRange.top;
-    const ratio = indicatorY / movableHeight;
+    let zoneWidth =
+        parseFloat(
+            config.dataset.zoneWidth
+        );
 
-    if (inZone) {
 
-        roundMessage.textContent = "🔥 ちょうどいい火加減！";
-        roundMessage.style.color = "#e65100";
-        showHappyCharacter();
+    if (
+        !Number.isFinite(roundCount) ||
+        roundCount < 1
+    ) {
+        roundCount = 1;
+    }
 
-    } else {
 
-        lives--;
-        livesDisplay.textContent = "❤".repeat(Math.max(lives, 0)) +
-                                    "🖤".repeat(3 - Math.max(lives, 0));
+    if (
+        !Number.isFinite(speed) ||
+        speed <= 0
+    ) {
+        speed = 1;
+    }
 
-        if (ratio > 0.5) {
-            roundMessage.textContent = "💥 火が強すぎる！";
-        } else {
-            roundMessage.textContent = "❄️ 火が弱すぎる！";
+
+    if (
+        !Number.isFinite(zoneWidth)
+    ) {
+        zoneWidth = 30;
+    }
+
+
+    zoneWidth =
+        Math.min(
+            80,
+            Math.max(
+                5,
+                zoneWidth
+            )
+        );
+
+
+    const happyImage =
+        config.dataset.happyImage || "";
+
+
+    const damageImage =
+        config.dataset.damageImage || "";
+
+
+    /* =========================================================
+       HTML要素
+       ========================================================= */
+
+    const character =
+        document.getElementById(
+            "character"
+        );
+
+
+    const normalImage =
+        "{% static character_image %}";
+
+
+    const meter =
+        document.getElementById(
+            "flame-meter"
+        );
+
+
+    const zoneEl =
+        document.getElementById(
+            "success-zone-flame"
+        );
+
+
+    const indicator =
+        document.getElementById(
+            "flame-indicator"
+        );
+
+
+    const tapButton =
+        document.getElementById(
+            "tap-button"
+        );
+
+
+    const roundMessage =
+        document.getElementById(
+            "round-message"
+        );
+
+
+    const cookingStep =
+        document.getElementById(
+            "cooking-step"
+        );
+
+
+    const progressDisplay =
+        document.getElementById(
+            "progress"
+        );
+
+
+    const totalDisplay =
+        document.getElementById(
+            "total"
+        );
+
+
+    const livesDisplay =
+        document.getElementById(
+            "lives"
+        );
+
+
+    if (
+        !character ||
+        !meter ||
+        !zoneEl ||
+        !indicator ||
+        !tapButton ||
+        !roundMessage ||
+        !cookingStep ||
+        !progressDisplay ||
+        !totalDisplay ||
+        !livesDisplay
+    ) {
+        console.error(
+            "火加減チャレンジに必要なHTML要素が見つかりません。"
+        );
+        return;
+    }
+
+
+    totalDisplay.textContent =
+        roundCount;
+
+
+    /* =========================================================
+       料理ステップ
+       ========================================================= */
+
+    const COOKING_STEPS = [
+        "下ごしらえ 🥕",
+        "強火で炒める 🥘",
+        "水を加える 💧",
+        "弱火で煮込む ♨️",
+        "味付け 🧂",
+        "仕上げ ✨"
+    ];
+
+
+    /*
+     * 炎の半径を考慮
+     */
+    const HALF = 20;
+
+
+    /* =========================================================
+       ゲーム状態
+       ========================================================= */
+
+    let lives = 3;
+
+    let currentRound = 0;
+
+    let gameEnded = false;
+
+    let isAnimating = false;
+
+    let animationId = null;
+
+    let nextRoundTimer = null;
+
+    let endTimer = null;
+
+    let characterTimer = null;
+
+    let pos = 0;
+
+    let dir = 1;
+
+    let lastTime = 0;
+
+    let zoneLeft = 0;
+
+    let zoneW = 0;
+
+
+    /* =========================================================
+       炎の位置
+       ========================================================= */
+
+    function flameX() {
+
+        const W =
+            meter.clientWidth;
+
+
+        return (
+            HALF +
+            pos *
+            Math.max(
+                0,
+                W - 2 * HALF
+            )
+        );
+    }
+
+
+    /* =========================================================
+       緑の成功ゾーン設定
+       ========================================================= */
+
+    function setupZone() {
+
+        const W =
+            meter.clientWidth;
+
+
+        zoneW =
+            W *
+            zoneWidth /
+            100;
+
+
+        const minLeft =
+            HALF;
+
+
+        const maxLeft =
+            Math.max(
+                minLeft,
+                W -
+                HALF -
+                zoneW
+            );
+
+
+        zoneLeft =
+            minLeft +
+            Math.random() *
+            Math.max(
+                0,
+                maxLeft -
+                minLeft
+            );
+
+
+        zoneEl.style.left =
+            zoneLeft + "px";
+
+
+        zoneEl.style.width =
+            zoneW + "px";
+    }
+
+
+    /* =========================================================
+       炎のアニメーション
+       ========================================================= */
+
+    function animateFlame(now) {
+
+        if (
+            gameEnded ||
+            !isAnimating
+        ) {
+            return;
         }
-        roundMessage.style.color = "#e53935";
-        showDamageCharacter();
+
+
+        if (lastTime === 0) {
+            lastTime = now;
+        }
+
+
+        const dt =
+            (now - lastTime) /
+            1000;
+
+
+        lastTime = now;
+
+
+        pos +=
+            dir *
+            0.45 *
+            speed *
+            dt;
+
+
+        if (pos >= 1) {
+
+            pos = 1;
+
+            dir = -1;
+
+        } else if (pos <= 0) {
+
+            pos = 0;
+
+            dir = 1;
+        }
+
+
+        indicator.style.left =
+            flameX() + "px";
+
+
+        animationId =
+            requestAnimationFrame(
+                animateFlame
+            );
     }
 
-    currentRound++;
-    progressDisplay.textContent = currentRound;
 
-    if (lives <= 0) {
-        setTimeout(function () { endGame(); }, 800);
-    } else if (currentRound >= roundCount) {
-        setTimeout(function () { endGame(); }, 800);
-    } else {
-        setTimeout(function () { nextRound(); }, 1000);
+    /* =========================================================
+       キャラクター表示
+       ========================================================= */
+
+    function showHappyCharacter() {
+
+        if (
+            gameEnded ||
+            !happyImage
+        ) {
+            return;
+        }
+
+
+        character.src =
+            happyImage;
+
+
+        clearTimeout(
+            characterTimer
+        );
+
+
+        characterTimer =
+            setTimeout(
+                function () {
+
+                    if (!gameEnded) {
+                        character.src =
+                            normalImage;
+                    }
+
+                },
+                400
+            );
     }
-}
 
-// -------------------------
-// 次のラウンドの準備
-// -------------------------
 
-function nextRound() {
+    function showDamageCharacter() {
 
-    if (gameEnded) return;
+        if (
+            gameEnded ||
+            !damageImage
+        ) {
+            return;
+        }
 
-    roundMessage.textContent = "";
-    cookingStep.textContent = COOKING_STEPS[currentRound % COOKING_STEPS.length];
 
-    zoneRange = setupSuccessZone();
+        character.src =
+            damageImage;
 
-    indicatorY = 0;
-    directionY = 1;
 
-    tapButton.disabled = false;
+        clearTimeout(
+            characterTimer
+        );
 
-    isAnimating = true;
-    animateFlame();
-}
 
-// -------------------------
-// ゲーム終了処理
-// -------------------------
+        characterTimer =
+            setTimeout(
+                function () {
 
-function endGame() {
+                    if (!gameEnded) {
+                        character.src =
+                            normalImage;
+                    }
 
-    if (gameEnded) return;
-    gameEnded = true;
+                },
+                400
+            );
+    }
 
-    cancelAnimationFrame(animationId);
+
+    /* =========================================================
+       ライフ表示
+       ========================================================= */
+
+    function updateLivesDisplay() {
+
+        const safeLives =
+            Math.max(
+                0,
+                Math.min(
+                    3,
+                    lives
+                )
+            );
+
+
+        livesDisplay.textContent =
+            "❤".repeat(
+                safeLives
+            ) +
+            "🖤".repeat(
+                3 - safeLives
+            );
+    }
+
+
+    /* =========================================================
+       タップ処理
+       ========================================================= */
+
+    function handleTap() {
+
+        if (
+            gameEnded ||
+            !isAnimating
+        ) {
+            return;
+        }
+
+
+        isAnimating =
+            false;
+
+
+        if (
+            animationId !== null
+        ) {
+
+            cancelAnimationFrame(
+                animationId
+            );
+
+            animationId = null;
+        }
+
+
+        tapButton.disabled =
+            true;
+
+
+        const x =
+            flameX();
+
+
+        const inZone =
+            x >= zoneLeft &&
+            x <= zoneLeft + zoneW;
+
+
+        if (inZone) {
+
+            roundMessage.textContent =
+                "🔥 ちょうどいい火加減！";
+
+            roundMessage.style.color =
+                "#e65100";
+
+
+            showHappyCharacter();
+
+        } else {
+
+            lives--;
+
+            updateLivesDisplay();
+
+
+            if (x < zoneLeft) {
+
+                roundMessage.textContent =
+                    "❄️ 火が弱すぎる！";
+
+            } else {
+
+                roundMessage.textContent =
+                    "💥 火が強すぎる！";
+            }
+
+
+            roundMessage.style.color =
+                "#e53935";
+
+
+            showDamageCharacter();
+        }
+
+
+        currentRound++;
+
+
+        progressDisplay.textContent =
+            currentRound;
+
+
+        /*
+         * ゲーム終了
+         */
+        if (
+            lives <= 0 ||
+            currentRound >= roundCount
+        ) {
+
+            endTimer =
+                setTimeout(
+                    endGame,
+                    800
+                );
+
+            return;
+        }
+
+
+        /*
+         * 次のラウンド
+         */
+        nextRoundTimer =
+            setTimeout(
+                startRound,
+                1000
+            );
+    }
+
+
+    /* =========================================================
+       ラウンド開始
+       ========================================================= */
+
+    function startRound() {
+
+        if (gameEnded) {
+            return;
+        }
+
+
+        roundMessage.textContent =
+            "";
+
+
+        cookingStep.textContent =
+            COOKING_STEPS[
+                currentRound %
+                COOKING_STEPS.length
+            ];
+
+
+        setupZone();
+
+
+        pos =
+            Math.random();
+
+
+        dir =
+            Math.random() < 0.5
+                ? 1
+                : -1;
+
+
+        lastTime = 0;
+
+
+        indicator.style.left =
+            flameX() + "px";
+
+
+        tapButton.disabled =
+            false;
+
+
+        isAnimating =
+            true;
+
+
+        animationId =
+            requestAnimationFrame(
+                animateFlame
+            );
+    }
+
+
+
+    /* =========================================================
+       ゲーム終了
+       ========================================================= */
+
+    function endGame() {
+
+        if (gameEnded) {
+            return;
+        }
+
+
+        gameEnded = true;
+
+        isAnimating = false;
+
+
+        if (
+            animationId !== null
+        ) {
+
+            cancelAnimationFrame(
+                animationId
+            );
+
+            animationId = null;
+        }
+
+
+        clearTimeout(
+            nextRoundTimer
+        );
+
+
+        clearTimeout(
+            endTimer
+        );
+
+
+        clearTimeout(
+            characterTimer
+        );
+
+
+        tapButton.disabled =
+            true;
+
+
+        const backButton =
+            document.getElementById(
+                "back-button"
+            );
+
+
+        if (backButton) {
+
+            backButton.style.pointerEvents =
+                "none";
+
+            backButton.style.opacity =
+                "0.4";
+        }
+
+
+        const finalLives =
+            Math.max(
+                lives,
+                0
+            );
+
+
+        let resultImg;
+
+        let resultMsg;
+
+
+        if (finalLives === 3) {
+
+            resultImg =
+                happyImage;
+
+            resultMsg =
+                "かんぺきな火加減だったよ！おいしそう！";
+
+        } else if (finalLives === 2) {
+
+            resultImg =
+                happyImage;
+
+            resultMsg =
+                "上手に料理できたよ！";
+
+        } else if (finalLives === 1) {
+
+            resultImg =
+                normalImage;
+
+            resultMsg =
+                "もうすこしで完璧な料理だったのに…";
+
+        } else {
+
+            resultImg =
+                damageImage;
+
+            resultMsg =
+                "こげちゃった…つぎはうまくやるよ！";
+        }
+
+
+        showResultFeedback(
+            resultImg,
+            resultMsg
+        );
+
+
+        const gameOver =
+            document.getElementById(
+                "game-over"
+            );
+
+
+        const finalScore =
+            document.getElementById(
+                "final-score"
+            );
+
+
+        if (gameOver) {
+
+            gameOver.style.display =
+                "flex";
+        }
+
+
+        if (finalScore) {
+
+            finalScore.textContent =
+                "❤".repeat(
+                    finalLives
+                );
+        }
+
+
+        setTimeout(
+            function () {
+
+                window.location.href =
+                    "{% url 'home' %}" +
+                    "?action=timing_result" +
+                    "&lives=" +
+                    finalLives +
+                    "&difficulty=" +
+                    encodeURIComponent(
+                        difficulty
+                    );
+
+            },
+            3000
+        );
+    }
+
+
+    /* =========================================================
+       ボタン
+       clickのみ
+       ========================================================= */
+
+    tapButton.addEventListener(
+        "click",
+        function (e) {
+
+            e.preventDefault();
+
+            handleTap();
+        }
+    );
+
+
+    /* =========================================================
+       初期状態
+       ========================================================= */
+
+    updateLivesDisplay();
+
     tapButton.disabled = true;
 
-    document.getElementById("back-button").style.pointerEvents = "none";
-    document.getElementById("back-button").style.opacity = "0.4";
 
-    const finalLives = Math.max(lives, 0);
+    /* =========================================================
+       ゲーム開始
+       ========================================================= */
 
-const normalImg = "{% static character_image %}";
-const happyImg = "{% static character_happy_image %}";
-const tiredImg = "{% static character_damage_image %}";
+    startCountdown(
+        function () {
 
-let resultImg, resultMsg;
-
-if (finalLives === 3) {
-    resultImg = happyImg;
-    resultMsg = "かんぺきな火加減だったよ！おいしそう！";
-} else if (finalLives === 2) {
-    resultImg = happyImg;
-    resultMsg = "上手に料理できたよ！";
-} else if (finalLives === 1) {
-    resultImg = normalImg;
-    resultMsg = "もうすこしで完璧な料理だったのに…";
-} else {
-    resultImg = tiredImg;
-    resultMsg = "こげちゃった…つぎはうまくやるよ！";
-}
-
-showResultFeedback(resultImg, resultMsg);
-
-document.getElementById("game-over").style.display = "flex";
-document.getElementById("final-score").textContent = "❤".repeat(finalLives);
+            if (gameEnded) {
+                return;
+            }
 
 
-    document.getElementById("game-over").style.display = "flex";
-    document.getElementById("final-score").textContent = "❤".repeat(finalLives);
+            roundMessage.textContent =
+                "";
 
-    setTimeout(function () {
-        window.location.href =
-            "{% url 'home' %}?action=timing_result&lives=" + finalLives +
-            "&difficulty=" + difficulty;
-    }, 3000);
-}
 
-// -------------------------
-// タップボタンのイベント（スマホ・PC共通）
-// -------------------------
+            startRound();
+        }
+    );
 
-tapButton.addEventListener("touchstart", function (e) {
-    e.preventDefault();
-    handleTap();
-});
-
-tapButton.addEventListener("click", handleTap);
-
-// -------------------------
-// カウントダウン後にゲーム開始
-// -------------------------
-
-tapButton.disabled = true;
-
-startCountdown(function () {
-
-    cookingStep.textContent = COOKING_STEPS[0];
-
-    zoneRange = setupSuccessZone();
-    indicatorY = 0;
-    directionY = 1;
-
-    tapButton.disabled = false;
-    roundMessage.textContent = "火加減を合わせてタップ！";
-    roundMessage.style.color = "#333";
-
-    isAnimating = true;
-    animateFlame();
-});
-
+})();
 {% endblock %}

@@ -9,6 +9,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 
+
 item_categories = {
     'plant': 'plant',
     'plant-star': 'plant',
@@ -41,108 +42,315 @@ def get_difficulty_list(growth_stage):
         for level in DIFFICULTY_LEVELS
     ]
 
-def log_action(user, action, turn, energy, fullness, satisfaction, growth, result=''):
-    """行動ログを1件記録する"""
-    if user.is_authenticated:
-        ActionLog.objects.create(
-            user=user,
-            action=action,
-            turn=turn,
-            energy=energy,
-            fullness=fullness,
-            satisfaction=satisfaction,
-            growth=growth,
-            result=result,
-        )
+def get_int(request, name, default=0):
+    # URLの数値を安全に取得（変な値が来ても落ちない）
+    try:
+        return int(request.GET.get(name, default))
+    except (TypeError, ValueError):
+        return default
+
+
+# アイテムの表示名
+ITEM_NAMES = {
+    'plant': '観葉植物', 'sofa': 'ソファ', 'rug': 'ラグ', 'clock': '時計',
+    'room-kawaii': 'かわいい壁紙', 'room-star': '星空の壁紙', 'room-sky': '空の壁紙',
+    'sofa-star': '星のソファ', 'plant-star': '星の観葉植物',
+    'rug-star': '星のラグ', 'clock-star': '星の時計',
+    'sofa-kawaii': 'かわいいソファ', 'plant-kawaii': 'かわいい観葉植物',
+    'rug-kawaii': 'かわいいラグ', 'clock-kawaii': 'かわいい時計',
+}
+
+# キャラクターのセリフ（理由は言わず、ヒントだけ出す）
+HINT_TEXTS = {
+    'hungry': ["なんだかそわそわするな……", "……ぐぅ〜"],
+    'tired':  ["なんだか元気が出ないな……", "ふあぁ……"],
+    'full':   ["ふぅ……ちょっと動きたくないなあ", "うぅ……"],
+    'bored':  ["なんだかつまらないな〜……", "ねえねえ、なにかしようよ"],
+    'happy':  ["ふふっ♪", "えへへ、たのしいな！"],
+    'normal': ["どうしたの？", "なあに？"],
+}
+
+
+def get_hint_type(energy, fullness, satisfaction):
+    # パラメータからセリフの種類を決める（上にあるほど優先）
+    if fullness <= 30:
+        return 'hungry'
+    if energy <= 30:
+        return 'tired'
+    if fullness >= 90:
+        return 'full'
+    if satisfaction <= 30:
+        return 'bored'
+    if satisfaction >= 80:
+        return 'happy'
+    return 'normal'
+
+
+# チュートリアルの文言（(ステップ, 今どこを案内しているか) ごと）
+TUTORIAL_TEXTS = {
+    (1, 'main'):    "STEP 1　ごはん\nおなかがすいているみたいです。\n「ごはん」を押してね。",
+    (1, 'submenu'): "STEP 1　ごはん\nまずは「好きなごはん選び」を選んでみよう！",
+    (1, 'level'):   "STEP 1　ごはん\nむずかしさは「かんたん」を選んでね。",
+    (2, 'main'):    "STEP 2　あそぶ\n元気があるときは、一緒に遊んでみましょう！\n「あそぶ」を押してね。",
+    (2, 'submenu'): "STEP 2　あそぶ\nまずは「ダンスまね」を選んでみよう！",
+    (2, 'level'):   "STEP 2　あそぶ\nむずかしさは「かんたん」を選んでね。",
+    (3, 'rest'):    "STEP 3　休む\n疲れたときは休ませてあげましょう。\n「休む」を押してみてね。",
+}
+
+# チュートリアルで強制するミニゲーム
+TUTORIAL_PARENT_MENU = {1: 'food', 2: 'play'}                       # ごはん／あそぶ
+TUTORIAL_FORCED_MENU = {1: 'food_difficulty', 2: 'dance_difficulty'} # 選ばせるゲーム
+TUTORIAL_FORCED_ACTION = {1: 'food_minigame', 2: 'dance_minigame'}   # 開始アクション
+TUTORIAL_DONE_LINES = {
+    1: "✓ おなかいっぱいになりました！",
+    2: "✓ 上手に遊べました！",
+    3: "✓ ゆっくり休んで元気になりました！",
+}
+TUTORIAL_END_TEXT = "チュートリアル完了！\nここからは、この子の様子をよく見ながら育ててみてね。"
+
+FOOD_RESULT_ACTIONS = ['food_result', 'timing_result', 'count_result']
+PLAY_RESULT_ACTIONS = ['ball_game', 'dodge_result', 'dance_result']
+
+# ミニゲーム結果によるパラメータ変化（残りライフ0〜3の順）
+# (満足度, 元気, 満腹度, 成長, メッセージ)  ← バランス調整はここの数字だけでOK
+RESULT_TABLES = {
+    'food': [   # 好きなごはん選び（旧サラダ）
+        (5, 2, 12, 0, "あまり選べなかった…"),
+        (8, 3, 18, 0, "なんとか食べられた"),
+        (12, 4, 24, 1, "好物をしっかり選べた！"),
+        (20, 5, 30, 2, "完璧に好物だけ選べた！大満足！"),
+    ],
+    'timing': [  # 火加減チャレンジ（旧お肉）
+        (2, 3, 15, 0, "料理があまりうまくいかなかった…"),
+        (4, 6, 25, 1, "なんとか料理できた！"),
+        (6, 9, 35, 2, "上手に料理できた！"),
+        (10, 12, 45, 3, "完璧な料理ができた！大満足！"),
+    ],
+    'count': [   # 食材かぞえ（旧おやつ）
+        (8, -2, 5, 0, "食材をうまく数えられなかった…"),
+        (14, -2, 8, 1, "なんとか数えられた！"),
+        (20, -2, 10, 1, "上手に食材を数えられた！"),
+        (28, -2, 14, 2, "全問正解！食材を完璧に数えられた！"),
+    ],
+    'dodge': [   # 障害物よけ（運動なので元気が減る）
+        (3, -15, -10, 0, "うまく避けられなかった…"),
+        (6, -12, -10, 1, "なんとか避けられた！"),
+        (10, -10, -10, 2, "上手に避けられた！"),
+        (14, -8, -10, 3, "完璧！一度も当たらなかった！"),
+    ],
+}
+LIVES_GAMES = {
+    'food_result': 'food', 'timing_result': 'timing',
+    'count_result': 'count', 'dodge_result': 'dodge',
+}
+
+# ダンスまねのクリア報酬（満足度, 成長）
+DANCE_CLEAR_TABLE = {
+    'easy': (8, 1), 'normal': (12, 2), 'hard': (16, 3), 'oni': (20, 4),
+}
+
+
+# 「2回目以降のニューゲーム」でイントロ／チュートリアルを選ばせるか
+#   False: ニューゲームのたびに必ず最初から見せる
+#   True : 一度チュートリアルを終えた人には「見る／スキップ」を選ばせる
+ASK_TUTORIAL_ON_REPEAT = False
+
+# 行動ごとの消費時間（時間）
+ACTION_COST = {
+    'ball': 4, 'rest': 4, 'food_minigame': 2, 'dodge_minigame': 6,
+    'dance_minigame': 2, 'timing_minigame': 4, 'count_minigame': 2,
+}
+
+# 開始アクション → 移動先の画面
+START_VIEWS = {
+    'ball': 'ball_game', 'food_minigame': 'food_game',
+    'dance_minigame': 'dance_game', 'timing_minigame': 'timing_game',
+    'count_minigame': 'count_game', 'dodge_minigame': 'dodge_game',
+}
+
+# 開始アクション → 結果アクション（結果URLを1回だけ有効にするため）
+RESULT_FOR_START = {
+    'ball': 'ball_game', 'food_minigame': 'food_result',
+    'dance_minigame': 'dance_result', 'timing_minigame': 'timing_result',
+    'count_minigame': 'count_result', 'dodge_minigame': 'dodge_result',
+}
+RESULT_ACTIONS = list(RESULT_FOR_START.values())
+
+# メニューの並び（メニュー名, 表示名, 開始アクション, 消費時間）
+FOOD_MENU = [
+    ('food_difficulty', '好きなごはん選び', 'food_minigame', 2),
+    ('timing_difficulty', '火加減チャレンジ', 'timing_minigame', 4),
+    ('count_difficulty', '食材かぞえ', 'count_minigame', 2),
+]
+PLAY_MENU = [
+    ('dance_difficulty', 'ダンスまね', 'dance_minigame', 2),
+    ('ball_difficulty', 'ボールキャッチ', 'ball', 4),
+    ('dodge_difficulty', '障害物よけ', 'dodge_minigame', 6),
+]
+# 難易度メニュー名 → (開始アクション, 消費時間)
+DIFFICULTY_MENUS = {m: (a, c) for m, _label, a, c in FOOD_MENU + PLAY_MENU}
+
+ALL_ITEMS = [
+    'plant', 'sofa', 'rug', 'clock',
+    'room-kawaii', 'room-star', 'room-sky',
+    'sofa-star', 'plant-star', 'rug-star', 'clock-star',
+    'sofa-kawaii', 'plant-kawaii', 'rug-kawaii', 'clock-kawaii',
+]
+
+FURNITURE_POSITIONS = {
+    'sofa':         {'bottom': '20px', 'left': '30px', 'width': '240'},
+    'sofa-star':    {'bottom': '40px', 'left': '30px', 'width': '240'},
+    'sofa-kawaii':  {'bottom': '50px', 'left': '30px', 'width': '240'},
+    'plant':        {'bottom': '20px', 'right': '-40px', 'width': '280'},
+    'plant-star':   {'bottom': '20px', 'right': '-100px', 'width': '400'},
+    'plant-kawaii': {'bottom': '20px', 'right': '-40px', 'width': '280'},
+    'rug':          {'bottom': '0px', 'left': '50%', 'transform': 'translateX(-50%)', 'width': '160'},
+    'rug-star':     {'bottom': '-10px', 'left': '50%', 'transform': 'translateX(-50%)', 'width': '250'},
+    'rug-kawaii':   {'bottom': '-5px', 'left': '50%', 'transform': 'translateX(-50%)', 'width': '160'},
+    'clock':        {'top': '20px', 'right': '170px', 'width': '100'},
+    'clock-star':   {'top': '20px', 'right': '170px', 'width': '100'},
+    'clock-kawaii': {'top': '20px', 'right': '170px', 'width': '100'},
+}
+
+
+def make_defaults():
+    # 新しい育成の初期値（毎回新しいリストを作る）
+    return {
+        'satisfaction': 50, 'energy': 50, 'growth': 0, 'fullness': 50,
+        'turn': 1, 'remaining_time': 12, 'character_state': 'normal',
+        'play_count': 0, 'healthy_food_count': 0, 'snack_count': 0,
+        'room_wallpaper': 'room-default', 'items': [], 'placed_items': [],
+        'tutorial_step': 0, 'new_items': [], 'notified_stage': 0,
+    }
+
+
+def get_growth_stage(growth):
+    if growth < 20:
+        return 0
+    if growth < 40:
+        return 1
+    if growth < 80:
+        return 2
+    if growth < 100:
+        return 3
+    return 4
+
+
+def get_max_time(growth):
+    # 成長段階ごとの1日の時間
+    if growth < 20:
+        return 12
+    if growth < 40:
+        return 14
+    if growth < 80:
+        return 16
+    return 18
+
+
 
 
 def home(request):
 
     event_message = ""
     reaction_state = "normal"
+    tutorial_text = ""
 
     # -------------------------
-    # セーブデータ取得
+    # セーブデータ（ログイン中のみ）
     # -------------------------
 
     save_data = None
-
     if request.user.is_authenticated:
-        try:
-            save_data = SaveData.objects.get(user=request.user)
-        except SaveData.DoesNotExist:
-            save_data = None
+        save_data, _ = SaveData.objects.get_or_create(user=request.user)
+
+    action = request.GET.get('action')
 
     # -------------------------
-    # セーブデータ自動ロード
+    # ニューゲーム（ログインの有無に関係なく必ず初期化する）
     # -------------------------
 
-    if (
-        request.user.is_authenticated
-        and not request.session.get('auto_loaded', False)
-        and save_data is not None
-    ):
+    if action == "reset":
 
-        # セッションにロード
-        request.session['satisfaction'] = save_data.satisfaction
-        request.session['energy'] = save_data.energy
-        request.session['growth'] = save_data.growth
-        request.session['fullness'] = save_data.fullness
-        request.session['turn'] = save_data.turn
-        request.session['remaining_time'] = save_data.remaining_time
-        request.session['play_count'] = save_data.play_count
-        request.session['healthy_food_count'] = save_data.healthy_food_count
-        request.session['snack_count'] = save_data.snack_count
-        request.session['character_state'] = save_data.character_state
-        request.session['room_wallpaper'] = save_data.room_wallpaper
-        request.session['items'] = save_data.items
-        request.session['placed_items'] = save_data.placed_items
+        # すでにチュートリアルを終えているか（リセット前のセッションで判断）
+        seen_tutorial = request.session.get('tutorial_step', 0) >= 4
+        ask_choice = ASK_TUTORIAL_ON_REPEAT and seen_tutorial
 
-        # プレイ回数を+1
-        save_data.play_session_count += 1
-
-        # 育成開始日時が未設定なら記録
-        if not save_data.play_started_at:
-            save_data.play_started_at = timezone.now()
-
-        save_data.save()
-
-    # -------------------------
-    # セッション開始時刻を記録
-    # -------------------------
-
-    if (
-        request.user.is_authenticated
-        and not request.session.get('auto_loaded', False)
-    ):
+        # セッションを初期値に戻す
+        for key, val in make_defaults().items():
+            request.session[key] = val
+        request.session['tutorial_choice_required'] = ask_choice
+        request.session['pending_result'] = ''
         request.session['session_start'] = timezone.now().isoformat()
         request.session['auto_loaded'] = True
 
+        # セーブデータも初期化（ActionLogと累計回数は残す）
+        if save_data is not None:
+            save_data.satisfaction = 50
+            save_data.energy = 50
+            save_data.growth = 0
+            save_data.fullness = 50
+            save_data.turn = 1
+            save_data.remaining_time = 12
+            save_data.play_count = 0
+            save_data.healthy_food_count = 0
+            save_data.snack_count = 0
+            save_data.character_state = 'normal'
+            save_data.room_wallpaper = 'room-default'
+            save_data.items = []
+            save_data.placed_items = []
+            save_data.new_items = []
+            save_data.notified_stage = 0
+            save_data.tutorial_step = 0
+            save_data.has_started_game = True
+            save_data.play_session_count += 1
+            save_data.play_started_at = timezone.now()
+            save_data.save()
+
+        return redirect('/')
+
     # -------------------------
-    # 初期値の設定
+    # チュートリアルを「見る」／「スキップ」
     # -------------------------
 
-    defaults = {
-        'satisfaction': 50,
-        'energy': 50,
-        'growth': 0,
-        'fullness': 50,
-        'turn': 1,
-        'remaining_time': 6,
-        'character_state': 'normal',
-        'play_count': 0,
-        'healthy_food_count': 0,
-        'snack_count': 0,
-        'room_wallpaper': 'room-default',
-        'items': [],
-        'placed_items': [],
-    }
-    for key, val in defaults.items():
+    if action == "tutorial_view":
+        request.session['tutorial_choice_required'] = False
+        request.session['tutorial_step'] = 0
+        if save_data is not None:
+            save_data.tutorial_step = 0
+            save_data.save()
+        return redirect('/')
+
+    if action == "tutorial_skip":
+        request.session['tutorial_choice_required'] = False
+        request.session['tutorial_step'] = 4
+        if save_data is not None:
+            save_data.tutorial_step = 4
+            save_data.save()
+        return redirect('/')
+
+    # -------------------------
+    # 自動ロード（セッション開始時に1回だけ）
+    # -------------------------
+
+    if save_data is not None and not request.session.get('auto_loaded', False):
+        for key in make_defaults().keys():
+            request.session[key] = getattr(save_data, key)
+
+        save_data.play_session_count += 1
+        if not save_data.play_started_at:
+            save_data.play_started_at = timezone.now()
+        save_data.save()
+
+        request.session['session_start'] = timezone.now().isoformat()
+        request.session['auto_loaded'] = True
+
+    # 足りない項目は初期値で埋める
+    for key, val in make_defaults().items():
         if key not in request.session:
             request.session[key] = val
 
     # -------------------------
-    # セッションから現在値を取得
+    # 現在値
     # -------------------------
 
     satisfaction = request.session['satisfaction']
@@ -158,190 +366,101 @@ def home(request):
     items = request.session['items']
     placed_items = request.session['placed_items']
     room_wallpaper = request.session['room_wallpaper']
+    tutorial_step = request.session['tutorial_step']
+    notified_stage = request.session['notified_stage']
+    new_items = list(request.session['new_items'])
 
-    # ゲームオーバー・育成完了判定用に現在値を保存
+    # 行動前の状態（ログ・反応の判定用）
     before_energy = energy
     before_growth = growth
+    before_hint = get_hint_type(energy, fullness, satisfaction)
+
+    max_time = get_max_time(growth)
 
     # -------------------------
-    # 成長段階ごとの最大時間
+    # 結果URLは「ゲーム開始直後の1回だけ」有効
+    # （再読み込み・戻る／進む・URL直打ちで二重に反映されるのを防ぐ）
     # -------------------------
 
-    if growth < 20:
-        max_time = 6
-    elif growth < 40:
-        max_time = 7
-    elif growth < 80:
-        max_time = 8
-    else:
-        max_time = 9
+    if action in RESULT_ACTIONS:
+        if request.session.get('pending_result') == action:
+            request.session['pending_result'] = ''
+        else:
+            action = None
 
-    # -------------------------
-    # アクションと基本判定
-    # -------------------------
-
-    action = request.GET.get('action')
     game_end = energy <= 0 or growth >= 100
 
-    action_cost = {
-        'ball': 2,
-        'rest': 2,
-        'food_minigame': 1,
-        'dodge_minigame': 3,
-        'dance_minigame': 1,
-        'timing_minigame': 2,
-        'count_minigame': 1,
-    }
+    # チュートリアル中（STEP1〜3）は時間を消費しない
+    in_tutorial = tutorial_step in (1, 2, 3)
+    was_tutorial = in_tutorial   # ログ用
 
     can_act = (
-        action in action_cost
-        and remaining_time >= action_cost[action]
+        action in ACTION_COST
         and not game_end
+        and (in_tutorial or remaining_time >= ACTION_COST[action])
     )
 
-    # -------------------------
-    # 全アイテム一覧
-    # -------------------------
-
-    all_items = [
-        'plant', 'sofa', 'rug', 'clock',
-        'room-kawaii', 'room-star', 'room-sky',
-        'sofa-star', 'plant-star', 'rug-star', 'clock-star',
-        'sofa-kawaii', 'plant-kawaii', 'rug-kawaii', 'clock-kawaii',
-    ]
+    # チュートリアル中は、指定されたミニゲームしか始められない
+    if in_tutorial and action in START_VIEWS:
+        if action != TUTORIAL_FORCED_ACTION.get(tutorial_step):
+            can_act = False
 
     owned_count = len(items)
-    total_count = len(all_items)
+    total_count = len(ALL_ITEMS)
     collection_rate = int(owned_count / total_count * 100)
 
     item_get = False
     get_item_image = ""
+    get_item_name = ""
 
     # -------------------------
-    # 家具の位置定義
-    # -------------------------
-
-    furniture_positions = {
-        'sofa':        {'bottom': '20px', 'left': '30px', 'width': '240'},
-        'sofa-star':   {'bottom': '40px', 'left': '30px', 'width': '240'},
-        'sofa-kawaii': {'bottom': '50px', 'left': '30px', 'width': '240'},
-        'plant':       {'bottom': '20px', 'right': '-40px', 'width': '280'},
-        'plant-star':  {'bottom': '20px', 'right': '-100px', 'width': '400'},
-        'plant-kawaii':{'bottom': '20px', 'right': '-40px', 'width': '280'},
-        'rug':         {'bottom': '0px', 'left': '50%', 'transform': 'translateX(-50%)', 'width': '160'},
-        'rug-star':    {'bottom': '-10px', 'left': '50%', 'transform': 'translateX(-50%)', 'width': '250'},
-        'rug-kawaii':  {'bottom': '-5px', 'left': '50%', 'transform': 'translateX(-50%)', 'width': '160'},
-        'clock':       {'top': '20px', 'right': '170px', 'width': '100'},
-        'clock-star':  {'top': '20px', 'right': '170px', 'width': '100'},
-        'clock-kawaii':{'top': '20px', 'right': '170px', 'width': '100'},
-    }
-
-    placed_item_images = []
-    for item in placed_items:
-        if item.startswith('room-'):
-            continue
-        position = furniture_positions.get(item, {})
-        placed_item_images.append({
-            'name': item,
-            'image': f'images/{item}.png',
-            'top': position.get('top', 'auto'),
-            'bottom': position.get('bottom', 'auto'),
-            'left': position.get('left', 'auto'),
-            'right': position.get('right', 'auto'),
-            'transform': position.get('transform', 'none'),
-            'width': position.get('width', '120'),
-        })
-
-    # -------------------------
-    # リセット
-    # -------------------------
-
-    if action == "reset":
-        if request.user.is_authenticated:
-            SaveData.objects.filter(user=request.user).delete()
-        request.session['satisfaction'] = 50
-        request.session['energy'] = 50
-        request.session['growth'] = 0
-        request.session['fullness'] = 50
-        request.session['turn'] = 1
-        request.session['remaining_time'] = 6
-        request.session['play_count'] = 0
-        request.session['healthy_food_count'] = 0
-        request.session['snack_count'] = 0
-        request.session['character_state'] = 'normal'
-        request.session['room_wallpaper'] = 'room-default'
-        request.session['items'] = []
-        request.session['placed_items'] = []
-        request.session['auto_loaded'] = False
-        return redirect('/')
-
-    # -------------------------
-    # メニュー処理
+    # メニュー
     # -------------------------
 
     menu = request.GET.get('menu', '')
-
-    # 行動後はメニューを閉じる
-    if action in [
-        'rest', 'next_day',
-        'ball_game', 'food_result', 'dodge_result',
-        'dance_result', 'timing_result', 'count_result',
-    ]:
+    if action in ['rest', 'next_day', 'intro_done'] + RESULT_ACTIONS:
         menu = ''
 
-    # -------------------------
-    # 難易度判定用の成長段階
-    # -------------------------
-
-    if growth < 20:
-        current_growth_stage = 0
-    elif growth < 40:
-        current_growth_stage = 1
-    elif growth < 80:
-        current_growth_stage = 2
-    elif growth < 100:
-        current_growth_stage = 3
-    else:
-        current_growth_stage = 4
-
-    difficulty_list = get_difficulty_list(current_growth_stage)
-
+    difficulty_list = get_difficulty_list(get_growth_stage(growth))
     last_action = action
-    food_image = ""
-
-    # -------------------------
-    # 難易度の取得ヘルパー
-    # -------------------------
 
     def get_valid_difficulty():
-        # URLパラメータから難易度を取得し、未解放なら easy にフォールバック
+        # チュートリアル中は必ず「かんたん」
+        if in_tutorial:
+            return "easy"
+        # 未解放の難易度が指定されたら easy にする
         diff = request.GET.get("difficulty", "easy")
         unlocked_keys = [d['key'] for d in difficulty_list if d['unlocked']]
         return diff if diff in unlocked_keys else "easy"
+
+    def record_minigame(key, success):
+        # ミニゲームの累計ログ（保存は最後にまとめて行う）
+        if save_data is None:
+            return
+        for field, add in [
+            (f'action_{key}_count', 1),
+            (f'minigame_{key}_play', 1),
+            (f'minigame_{key}_success', 1 if success else 0),
+        ]:
+            setattr(save_data, field, getattr(save_data, field) + add)
+
+    # ================================
+    # イントロ終了 → チュートリアル開始
+    # ================================
+
+    if action == 'intro_done' and tutorial_step == 0:
+        tutorial_step = 1
+        fullness = 25   # 「おなかがすいている」状態から始める（セリフのヒントも出る）
 
     # ================================
     # ミニゲーム結果の処理
     # ================================
 
-    # -------------------------
-    # ボールキャッチ終了
-    # -------------------------
-
+    # ボールキャッチ（スコア制）
     if action == "ball_game":
-
-        # JSがscoreMultiplierを掛けたスコアを送ってくるので、そのまま使う
-        score = int(request.GET.get("score", 0))
+        score = get_int(request, "score")
         play_count += 1
-
-        # ログ記録
-        if save_data is not None:
-            save_data.action_ball_count += 1
-            save_data.minigame_ball_play += 1
-
-            if score >= 10:
-                save_data.minigame_ball_success += 1
-
-            save_data.save()
+        record_minigame('ball', score >= 10)
 
         if score < 10:
             satisfaction += 10
@@ -356,334 +475,127 @@ def home(request):
             growth += 3
             event_message = "大満足だったみたい！"
 
-        request.session["event_message"] = event_message
+    # ライフ制のゲーム（ごはん選び・火加減・食材かぞえ・障害物よけ）
+    if action in LIVES_GAMES:
+        key = LIVES_GAMES[action]
+        lives = max(0, min(3, get_int(request, "lives")))
+        d_sat, d_energy, d_full, d_growth, event_message = RESULT_TABLES[key][lives]
 
-    # -------------------------
-    # 好きなごはん選び終了
-    # -------------------------
+        satisfaction += d_sat
+        energy += d_energy
+        fullness += d_full
+        growth += d_growth
 
-    if action == "food_result":
-
-        food_lives = int(request.GET.get("lives", 0))
-        healthy_food_count += 1
-
-        if save_data is not None:
-            save_data.action_food_count += 1
-            save_data.minigame_food_play += 1
-
-            if food_lives >= 1:
-                save_data.minigame_food_success += 1
-
-            save_data.save()
-
-
-        if food_lives == 0:
-            satisfaction += 5
-            energy += 4
-            fullness += 5
-            event_message = "あまり選べなかった…"
-        elif food_lives == 1:
-            satisfaction += 8
-            energy += 6
-            fullness += 8
-            event_message = "なんとか食べられた"
-        elif food_lives == 2:
-            satisfaction += 12
-            energy += 9
-            fullness += 12
-            growth += 1
-            event_message = "好物をしっかり選べた！"
+        # 性格タイプ用のカウント
+        if key in ('food', 'timing'):
+            healthy_food_count += 1
+        elif key == 'count':
+            snack_count += 1
         else:
-            satisfaction += 20
-            energy += 14
-            fullness += 18
-            growth += 2
-            event_message = "完璧に好物だけ選べた！大満足！"
+            play_count += 1
 
-        request.session["event_message"] = event_message
-
-    # -------------------------
-    # 障害物よけ終了
-    # -------------------------
-
-    if action == "dodge_result":
-
-        dodge_lives = int(request.GET.get("lives", 0))
-        dodge_score = int(request.GET.get("score", 0))
-        play_count += 1
-
-        if save_data is not None:
-            save_data.action_dodge_count += 1
-            save_data.minigame_dodge_play += 1
-
-            if dodge_lives >= 1:
-                save_data.minigame_dodge_success += 1
-
-            save_data.save()
-
-        if dodge_lives == 0:
-            satisfaction += 3
-            energy += 4
-            fullness -= 15
-            event_message = "うまく避けられなかった…"
-        elif dodge_lives == 1:
-            satisfaction += 6
-            energy += 8
-            fullness -= 15
-            growth += 1
-            event_message = "なんとか避けられた！"
-        elif dodge_lives == 2:
-            satisfaction += 10
-            energy += 12
-            fullness -= 15
-            growth += 2
-            event_message = "上手に避けられた！"
-        else:
-            satisfaction += 14
-            energy += 16
-            fullness -= 15
-            growth += 3
-            event_message = "完璧！一度も当たらなかった！"
-
-        if dodge_score >= 5:
+        # 障害物よけはアイテム5個以上でボーナス
+        if key == 'dodge' and get_int(request, "score") >= 5:
             satisfaction += 3
             growth += 1
             event_message += " アイテムもたくさん取れた！"
 
-        request.session["event_message"] = event_message
+        record_minigame(key, lives >= 1)
 
-    # -------------------------
-    # ダンスまね終了
-    # -------------------------
-
+    # ダンスまね
     if action == "dance_result":
-
         result = request.GET.get("result", "fail")
         play_count += 1
+        record_minigame('dance', result == "clear")
 
-        if save_data is not None:
-            save_data.action_dance_count += 1
-            save_data.minigame_dance_play += 1
-
-            if result == "clear":
-                save_data.minigame_dance_success += 1
-
-            save_data.save()
-
-        difficulty_bonus = {
-            'easy': {'growth': 1, 'satisfaction': 8},
-            'normal': {'growth': 2, 'satisfaction': 12},
-            'hard': {'growth': 3, 'satisfaction': 16},
-            'oni': {'growth': 4, 'satisfaction': 20},
-        }
-
-        diff = request.GET.get("difficulty", "easy")
-        bonus = difficulty_bonus.get(diff, difficulty_bonus['easy'])
-
+        energy -= 8
+        fullness -= 8
         if result == "clear":
-            satisfaction += bonus['satisfaction']
-            energy -= 5
-            fullness -= 5
-            growth += bonus['growth']
+            bonus_sat, bonus_growth = DANCE_CLEAR_TABLE.get(
+                request.GET.get("difficulty", "easy"), (8, 1)
+            )
+            satisfaction += bonus_sat
+            growth += bonus_growth
             event_message = "完璧なダンス！"
-
         else:
-            # 失敗時は難易度に関わらず固定値
             satisfaction += 4
-            energy -= 5
-            fullness -= 5
             event_message = "惜しかった！また挑戦しよう！"
 
-        request.session["event_message"] = event_message
-
-    # -------------------------
-    # 火加減チャレンジ終了
-    # -------------------------
-
-    if action == "timing_result":
-
-        timing_lives = int(request.GET.get("lives", 0))
-        healthy_food_count += 1
-
-        if save_data is not None:
-            save_data.action_timing_count += 1
-            save_data.minigame_timing_play += 1
-
-            if timing_lives >= 1:
-                save_data.minigame_timing_success += 1
-
-            save_data.save()
-
-        if timing_lives == 0:
-            satisfaction += 2
-            energy += 5
-            fullness += 10
-            event_message = "料理があまりうまくいかなかった…"
-
-        elif timing_lives == 1:
-            satisfaction += 4
-            energy += 10
-            fullness += 20
-            growth += 1
-            event_message = "なんとか料理できた！"
-
-        elif timing_lives == 2:
-            satisfaction += 6
-            energy += 15
-            fullness += 28
-            growth += 2
-            event_message = "上手に料理できた！"
-
-        else:
-            satisfaction += 10
-            energy += 20
-            fullness += 35
-            growth += 3
-            event_message = "完璧な料理ができた！大満足！"
-
-        request.session["event_message"] = event_message
-
-    # -------------------------
-    # 食材かぞえ終了
-    # -------------------------
-
-    if action == "count_result":
-
-        count_lives = int(request.GET.get("lives", 0))
-        snack_count += 1
-
-        if save_data is not None:
-            save_data.action_count_count += 1
-            save_data.minigame_count_play += 1
-            if count_lives >= 1:
-                save_data.minigame_count_success += 1
-
-        if count_lives == 0:
-            satisfaction += 8
-            energy -= 5
-            fullness += 3
-            event_message = "食材をうまく数えられなかった…"
-        elif count_lives == 1:
-            satisfaction += 14
-            energy -= 5
-            fullness += 5
-            growth += 1
-            event_message = "なんとか数えられた！"
-        elif count_lives == 2:
-            satisfaction += 20
-            energy -= 5
-            fullness += 7
-            growth += 1
-            event_message = "上手に食材を数えられた！"
-        else:
-            satisfaction += 28
-            energy -= 5
-            fullness += 10
-            growth += 2
-            event_message = "全問正解！食材を完璧に数えられた！"
-
-        request.session["event_message"] = event_message
-
     # ================================
-    # ミニゲーム開始処理（redirect）
+    # ミニゲーム開始（ゲーム画面へ移動）
     # ================================
 
-    # ボールキャッチ開始
-    if action == "ball" and can_act:
+    if action in START_VIEWS and can_act:
         difficulty = get_valid_difficulty()
-        remaining_time -= action_cost['ball']
-        energy -= 20
-        fullness -= 15
+
+        # チュートリアル中は時間・体力を消費しない
+        if not in_tutorial:
+            remaining_time -= ACTION_COST[action]
+            if action == 'ball':
+                energy = max(0, energy - 10)
+                fullness = max(0, fullness - 10)
+
         request.session["remaining_time"] = remaining_time
         request.session["energy"] = energy
         request.session["fullness"] = fullness
-        return redirect(f"{reverse('ball_game')}?{urlencode({'difficulty': difficulty})}")
+        request.session["pending_result"] = RESULT_FOR_START[action]
 
-    # 好きなごはん選び開始
-    elif action == "food_minigame" and can_act:
-        difficulty = get_valid_difficulty()
-        remaining_time -= action_cost['food_minigame']
-        request.session["remaining_time"] = remaining_time
-        return redirect(f"{reverse('food_game')}?{urlencode({'difficulty': difficulty})}")
-
-    # ダンスまね開始
-    elif action == "dance_minigame" and can_act:
-        difficulty = get_valid_difficulty()
-        remaining_time -= action_cost['dance_minigame']
-        request.session["remaining_time"] = remaining_time
-        return redirect(f"{reverse('dance_game')}?{urlencode({'difficulty': difficulty})}")
-
-    # 料理タイミング開始
-    elif action == "timing_minigame" and can_act:
-        difficulty = get_valid_difficulty()
-        remaining_time -= action_cost['timing_minigame']
-        request.session["remaining_time"] = remaining_time
-        return redirect(f"{reverse('timing_game')}?{urlencode({'difficulty': difficulty})}")
-
-    # 食材かぞえ開始
-    elif action == "count_minigame" and can_act:
-        difficulty = get_valid_difficulty()
-        remaining_time -= action_cost['count_minigame']
-        request.session["remaining_time"] = remaining_time
-        return redirect(f"{reverse('count_game')}?{urlencode({'difficulty': difficulty})}")
-
-    # 障害物よけ開始
-    elif action == "dodge_minigame" and can_act:
-        difficulty = get_valid_difficulty()
-        remaining_time -= action_cost['dodge_minigame']
-        request.session["remaining_time"] = remaining_time
-        return redirect(f"{reverse('dodge_game')}?{urlencode({'difficulty': difficulty})}")
+        return redirect(
+            f"{reverse(START_VIEWS[action])}?{urlencode({'difficulty': difficulty})}"
+        )
 
     # -------------------------
     # 休む
     # -------------------------
 
-    elif action == 'rest' and can_act:
-
+    if action == 'rest' and can_act:
         if save_data is not None:
             save_data.action_rest_count += 1
 
-        if energy <= 20:
-            energy += 30
-            satisfaction += 10
-            remaining_time -= 2
+        if energy <= 40:
+            # 疲れているときはよく回復する
+            energy += 35
+            satisfaction += 8
             reaction_state = "good_rest"
         else:
-            satisfaction -= 5
-            energy += 20
-            fullness -= 5
-            remaining_time -= 2
+            energy += 25
             reaction_state = "normal_rest"
+
+        if not in_tutorial:
+            fullness -= 3
+            remaining_time -= ACTION_COST['rest']
 
     # -------------------------
     # 次の日へ
     # -------------------------
 
-    elif action == 'next_day' and not game_end:
+    if action == 'next_day' and not game_end and not in_tutorial:
         turn += 1
-
         if save_data is not None:
             save_data.action_next_day_count += 1
 
-        if growth < 20:
-            remaining_time = 6
-        elif growth < 40:
-            remaining_time = 7
-        elif growth < 80:
-            remaining_time = 8
-        else:
-            remaining_time = 9
-        fullness -= 20
+        remaining_time = get_max_time(growth)
+        fullness -= 15
         energy += 15
         satisfaction -= 5
         reaction_state = "normal"
+
+        # 3ターンごとのランダムイベント
+        if turn % 3 == 0:
+            event = random.randint(1, 4)
+            if event == 1:
+                satisfaction += 20
+            elif event == 2:
+                energy -= 15
+            elif event == 3:
+                growth += 2
 
     # -------------------------
     # 持ち物の配置・撤去
     # -------------------------
 
     if action == "place":
-        item = request.GET.get("item")
+        item = request.GET.get("item", "")
         if item.startswith("room-"):
             request.session["room_wallpaper"] = item
             return redirect("/?menu=items")
@@ -697,7 +609,7 @@ def home(request):
         return redirect("/?menu=items")
 
     if action == 'remove':
-        item = request.GET.get('item')
+        item = request.GET.get('item', '')
         placed_items = request.session.get('placed_items', [])
         if item in placed_items:
             placed_items.remove(item)
@@ -705,43 +617,52 @@ def home(request):
         return redirect('/?menu=items')
 
     # -------------------------
-    # 3ターンごとのランダムイベント
+    # チュートリアルの進行
     # -------------------------
 
-    if action == 'next_day' and turn % 3 == 0:
-        event = random.randint(1, 4)
-        if event == 1:
-            satisfaction += 20
-        elif event == 2:
-            energy -= 15
-        elif event == 3:
-            growth += 2
+    done_line = ""
+    if tutorial_step == 1 and action in FOOD_RESULT_ACTIONS:
+        done_line = TUTORIAL_DONE_LINES[1]
+        tutorial_step = 2
+    elif tutorial_step == 2 and action in PLAY_RESULT_ACTIONS:
+        done_line = TUTORIAL_DONE_LINES[2]
+        tutorial_step = 3
+    elif tutorial_step == 3 and action == 'rest':
+        done_line = TUTORIAL_DONE_LINES[3]
+        tutorial_step = 4
+        reaction_state = "good_rest"
+
+    # いま画面のどこを案内するか
+    tutorial_target = ''
+    if tutorial_step in (1, 2):
+        if menu == TUTORIAL_PARENT_MENU[tutorial_step]:
+            tutorial_target = 'submenu'  # ごはん／あそぶの中身を開いている
+        elif menu == TUTORIAL_FORCED_MENU[tutorial_step]:
+            tutorial_target = 'level'  # 難易度を選ぶ画面
+        else:
+            tutorial_target = 'main'  # まだ「ごはん」「あそぶ」を押す前
+    elif tutorial_step == 3:
+        tutorial_target = 'rest'
+
+    if tutorial_target:
+        tutorial_text = (done_line + "\n" if done_line else "") + \
+                        TUTORIAL_TEXTS[(tutorial_step, tutorial_target)]
+    elif done_line:
+        tutorial_text = done_line + "\n" + TUTORIAL_END_TEXT
 
     # ================================
     # パラメータ依存イベント
     # ================================
 
-    # 初回アクセスはnormal
     if action is None and menu == '':
         character_state = "normal"
     else:
         character_state = request.session.get('character_state', 'normal')
 
-    # ミニゲーム結果・休む・次の日へ のときだけ判定する
-    action_list = [
-        'rest',
-        'next_day',
-        'ball_game',
-        'food_result',
-        'dodge_result',
-        'dance_result',
-        'timing_result',
-        'count_result',
-    ]
+    action_list = ['rest', 'next_day'] + PLAY_RESULT_ACTIONS + FOOD_RESULT_ACTIONS
 
     if action in action_list:
 
-        # 行動時だけnormalに戻して再判定
         character_state = "normal"
 
         # 元気が低い
@@ -755,13 +676,13 @@ def home(request):
             character_state = "happy"
 
         # 満腹すぎる
-        if fullness >= 70:
+        if fullness >= 90:
             satisfaction -= 5
             growth -= 2
             character_state = "tired"
 
         # 満腹なのにごはん系ゲームをした
-        if fullness >= 70 and action in ['food_result', 'timing_result', 'count_result']:
+        if fullness >= 90 and action in FOOD_RESULT_ACTIONS:
             satisfaction -= 10
             energy -= 5
             character_state = "tired"
@@ -773,13 +694,13 @@ def home(request):
             character_state = "tired"
 
         # 疲れているのに遊ぶ
-        if energy <= 30 and action in ['ball_game', 'dodge_result', 'dance_result']:
+        if energy <= 30 and action in PLAY_RESULT_ACTIONS:
             energy -= 10
             satisfaction -= 5
             character_state = "tired"
 
         # 空腹なのに遊ぶ
-        if fullness <= 30 and action in ['ball_game', 'dodge_result', 'dance_result']:
+        if fullness <= 30 and action in PLAY_RESULT_ACTIONS:
             satisfaction -= 10
             character_state = "tired"
 
@@ -793,25 +714,20 @@ def home(request):
             growth -= 2
             character_state = "tired"
 
-        # Happyならアイテム獲得チャンス
+        # Happyならアイテム獲得チャンス（20%）
         if character_state == "happy":
-            items = request.session.get('items', [])
-            candidate_items = [
-                'plant', 'sofa', 'rug', 'clock',
-                'room-kawaii', 'room-star', 'room-sky',
-                'sofa-star', 'plant-star', 'rug-star', 'clock-star',
-                'sofa-kawaii', 'plant-kawaii', 'rug-kawaii', 'clock-kawaii',
-            ]
-            unlocked = [i for i in candidate_items if i not in items]
-            if unlocked and random.randint(1, 100) <= 20:
-                new_item = random.choice(unlocked)
+            not_owned = [i for i in ALL_ITEMS if i not in items]
+            if not_owned and random.randint(1, 100) <= 20:
+                new_item = random.choice(not_owned)
                 items.append(new_item)
                 request.session['items'] = items
+                new_items.append(new_item)
                 item_get = True
                 get_item_image = f'images/{new_item}.png'
+                get_item_name = ITEM_NAMES.get(new_item, new_item)
 
     # -------------------------
-    # 最終値を制限
+    # 値の上限・下限
     # -------------------------
 
     satisfaction = max(0, min(100, satisfaction))
@@ -821,64 +737,107 @@ def home(request):
     remaining_time = max(0, remaining_time)
 
     # -------------------------
-    # 行動ログの記録
+    # 難易度の解放チェック（成長して新しく解放されたら知らせる）
     # -------------------------
 
-    # 記録対象の行動（ミニゲーム結果・休む・次の日へ）
-    loggable_actions = {
-        'ball_game': 'ボールキャッチ',
-        'food_result': '好きなごはん選び',
-        'dodge_result': '障害物よけ',
-        'dance_result': 'ダンスまね',
-        'timing_result': '火加減チャレンジ',
-        'count_result': '食材かぞえ',
-        'rest': '休む',
-        'next_day': '次の日へ',
-    }
+    unlock_labels = []
+    new_stage = get_growth_stage(growth)
 
-    if action in loggable_actions and request.user.is_authenticated:
+    if new_stage > notified_stage:
+        for before, after in zip(
+            get_difficulty_list(notified_stage),
+            get_difficulty_list(new_stage),
+        ):
+            if after['unlocked'] and not before['unlocked']:
+                unlock_labels.append(after['label'])
+        notified_stage = new_stage    # 通知済みにする（二度と出さない）
 
-        # 結果の文字列を作成（ミニゲームの場合はスコア・ライフも記録）
-        result_str = ''
+    # 行動後の成長に合わせて、難易度の表示も更新する
+    difficulty_list = get_difficulty_list(new_stage)
 
-        if action == 'ball_game':
-            result_str = f"スコア:{request.GET.get('score', 0)}"
-
-        elif action in ['food_result', 'dodge_result', 'timing_result', 'count_result']:
-            result_str = f"ライフ:{request.GET.get('lives', 0)}"
-
-        elif action == 'dodge_result':
-            result_str = f"ライフ:{request.GET.get('lives', 0)} スコア:{request.GET.get('score', 0)}"
-
-        elif action == 'dance_result':
-            result_str = request.GET.get('result', 'fail')
-
-        log_action(
-            user=request.user,
-            action=loggable_actions[action],
-            turn=turn,
-            energy=energy,
-            fullness=fullness,
-            satisfaction=satisfaction,
-            growth=growth,
-            result=result_str,
-        )
-
-    # ゲーム終了判定を更新
     game_end = energy <= 0 or growth >= 100
-
     game_status = ""
     if energy <= 0:
         game_status = "つかれて眠ってしまった…ゲームオーバー"
     elif growth >= 100:
         game_status = "大きく成長した！ゲームクリア！"
 
-        # クリアまでの時間を記録
-        if save_data.play_started_at:
-            clear_seconds = int(
-                (timezone.now() - save_data.play_started_at).total_seconds()
-            )
-            save_data.clear_time_seconds = clear_seconds
+    # -------------------------
+    # キャラクターのヒント・反応
+    # -------------------------
+
+    hint_type = get_hint_type(energy, fullness, satisfaction)
+    hint_list = HINT_TEXTS[hint_type]
+
+    # 悪い状態から良くなったら、うれしい反応を返す
+    reaction_text = ""
+    if (
+        action in action_list
+        and before_hint in ('hungry', 'tired', 'full', 'bored')
+        and hint_type in ('normal', 'happy')
+    ):
+        reaction_text = random.choice(["……！", "ふふっ♪"])
+
+    # -------------------------
+    # 持ち物の表示用データ（NEW判定）
+    # -------------------------
+
+    items_display = [
+        {'id': i, 'name': ITEM_NAMES.get(i, i), 'is_new': i in new_items}
+        for i in items
+    ]
+    has_new_items = len(new_items) > 0
+
+    # 持ち物一覧を開いたらNEWを消す
+    if menu == 'items':
+        new_items = []
+
+    placed_item_images = []
+    for item in placed_items:
+        if item.startswith('room-'):
+            continue
+        pos = FURNITURE_POSITIONS.get(item, {})
+        placed_item_images.append({
+            'name': item,
+            'image': f'images/{item}.png',
+            'top': pos.get('top', 'auto'),
+            'bottom': pos.get('bottom', 'auto'),
+            'left': pos.get('left', 'auto'),
+            'right': pos.get('right', 'auto'),
+            'transform': pos.get('transform', 'none'),
+            'width': pos.get('width', '120'),
+        })
+
+    # -------------------------
+    # 画面に出すボタンの「押せる／押せない」
+    # -------------------------
+
+    in_tutorial = tutorial_step in (1, 2, 3)
+    afford = {
+        key: (in_tutorial or remaining_time >= cost)
+        for key, cost in ACTION_COST.items()
+    }
+
+    # ごはん／あそぶメニューの中身
+    # チュートリアル中は、指定のゲームだけ押せて、強調表示する
+    forced_menu = TUTORIAL_FORCED_MENU.get(tutorial_step, '') if in_tutorial else ''
+
+    sub_menu_items = []
+    if menu in ('food', 'play'):
+        for m, label, act, cost in (FOOD_MENU if menu == 'food' else PLAY_MENU):
+            sub_menu_items.append({
+                'menu': m, 'label': label, 'cost': cost,
+                'ok': afford[act] and (not forced_menu or m == forced_menu),
+                'highlight': bool(forced_menu) and m == forced_menu,
+            })
+
+    # 難易度メニュー
+    difficulty_action = ''
+    difficulty_cost = 0
+    difficulty_affordable = False
+    if menu in DIFFICULTY_MENUS:
+        difficulty_action, difficulty_cost = DIFFICULTY_MENUS[menu]
+        difficulty_affordable = afford[difficulty_action]
 
     # -------------------------
     # セッション保存
@@ -889,17 +848,17 @@ def home(request):
     request.session['growth'] = growth
     request.session['fullness'] = fullness
     request.session['turn'] = turn
-    request.session['event_message'] = event_message
     request.session['character_state'] = character_state
     request.session['remaining_time'] = remaining_time
     request.session['play_count'] = play_count
     request.session['healthy_food_count'] = healthy_food_count
     request.session['snack_count'] = snack_count
-    if 'room_wallpaper' not in request.session:
-        request.session['room_wallpaper'] = 'room-default'
+    request.session['tutorial_step'] = tutorial_step
+    request.session['new_items'] = new_items
+    request.session['notified_stage'] = notified_stage
 
     # -------------------------
-    # 顔タイプを決定
+    # 顔タイプ・性格
     # -------------------------
 
     if play_count >= healthy_food_count + 3 and play_count >= snack_count + 3:
@@ -912,10 +871,10 @@ def home(request):
         face_type = ""
 
     personality_map = {
-        "-active":   ("げんきいっぱいタイプ",
-                      "たくさん遊んで育てたため、活発で好奇心旺盛な性格に成長しました。"),
-        "-gentle":   ("やさしいタイプ",
-                      "健康的な食事を大切にしたため、穏やかで思いやりのある性格に成長しました。"),
+        "-active": ("げんきいっぱいタイプ",
+                    "たくさん遊んで育てたため、活発で好奇心旺盛な性格に成長しました。"),
+        "-gentle": ("やさしいタイプ",
+                    "健康的な食事を大切にしたため、穏やかで思いやりのある性格に成長しました。"),
         "-cheerful": ("むじゃきタイプ",
                       "おやつや楽しい時間を大切にしたため、明るく人なつっこい性格に成長しました。"),
     }
@@ -925,23 +884,10 @@ def home(request):
     )
 
     # -------------------------
-    # 成長段階を決定
+    # キャラ画像・アニメーション
     # -------------------------
 
-    if growth < 20:
-        growth_stage = 0
-    elif growth < 40:
-        growth_stage = 1
-    elif growth < 80:
-        growth_stage = 2
-    elif growth < 100:
-        growth_stage = 3
-    else:
-        growth_stage = 4
-
-    # -------------------------
-    # キャラクター画像と状態を決定
-    # -------------------------
+    growth_stage = get_growth_stage(growth)
 
     state_type = ""
     if growth_stage != 4:
@@ -952,27 +898,21 @@ def home(request):
 
     character_image = f'images/character{growth_stage}{face_type}{state_type}.png'
 
-    # -------------------------
-    # アニメーションを決定
-    # -------------------------
-
     animation_map = {
-        "happy":  "happyBounce 0.8s ease-in-out infinite",
-        "tired":  "tiredMove 3s ease-in-out infinite",
+        "happy": "happyBounce 0.8s ease-in-out infinite",
+        "tired": "tiredMove 3s ease-in-out infinite",
         "hungry": "hungryShake 0.3s linear infinite",
-        "full":   "fullMove 4s ease-in-out infinite",
+        "full": "fullMove 4s ease-in-out infinite",
     }
     character_animation = animation_map.get(
-        character_state,
-        "floatCharacter 2s ease-in-out infinite"
+        character_state, "floatCharacter 2s ease-in-out infinite"
     )
 
     # -------------------------
-    # 背景画像を決定
+    # 背景・日付・時刻
     # -------------------------
 
-    room_wallpaper = request.session.get('room_wallpaper', 'room-default')
-    current_hour = 8 + (max_time - remaining_time) * 2
+    current_hour = 8 + (max_time - remaining_time)
 
     if current_hour < 12:
         time_zone = "morning"
@@ -983,14 +923,9 @@ def home(request):
 
     background_image = f'images/{room_wallpaper}-{time_zone}.png'
 
-    # -------------------------
-    # 日付・時刻を計算
-    # -------------------------
-
     current_date = datetime(2026, 4, 1) + timedelta(days=turn - 1)
     date_text = f"{current_date.month}月{current_date.day}日"
 
-    current_hour = 8 + (max_time - remaining_time) * 2
     if current_hour == 12:
         time_text = "正午12:00"
     elif current_hour < 12:
@@ -1002,49 +937,31 @@ def home(request):
     else:
         time_text = f"午後{current_hour - 12}:00"
 
-    # ゲーム終了判定を更新
-    game_end = energy <= 0 or growth >= 100
-
-    game_status = ""
-    if energy <= 0:
-        game_status = "つかれて眠ってしまった…ゲームオーバー"
-    elif growth >= 100:
-        game_status = "大きく成長した！ゲームクリア！"
-
     # -------------------------
-    # 自動セーブ＋ログ記録
+    # 自動セーブ＋ログ記録（ここで1回だけ保存）
     # -------------------------
 
-    if request.user.is_authenticated:
+    if save_data is not None:
 
-        # save_dataを取得（なければ新規作成）
-        save_data, created = SaveData.objects.get_or_create(user=request.user)
+        # 総プレイ時間
+        now = timezone.now()
+        start_str = request.session.get('session_start')
+        if start_str:
+            elapsed = int((now - datetime.fromisoformat(start_str)).total_seconds())
+            if 0 < elapsed < 3600:
+                save_data.total_play_seconds += elapsed
+        request.session['session_start'] = now.isoformat()
 
-        # プレイ時間を累積する
-        session_start_str = request.session.get('session_start')
-        if session_start_str:
-            from datetime import datetime as dt
-            session_start = dt.fromisoformat(session_start_str)
-            now = timezone.now()
-            elapsed_seconds = int((now - session_start).total_seconds())
-            if 0 < elapsed_seconds < 3600:
-                save_data.total_play_seconds += elapsed_seconds
-            request.session['session_start'] = timezone.now().isoformat()
-
-        # ゲームオーバーのログ
+        # ゲームオーバー・クリア
         if energy <= 0 and before_energy > 0:
             save_data.game_over_count += 1
-
-        # 育成完了のログ
         if growth >= 100 and before_growth < 100:
             save_data.clear_count += 1
             if save_data.play_started_at:
-                clear_seconds = int(
-                    (timezone.now() - save_data.play_started_at).total_seconds()
+                save_data.clear_time_seconds = int(
+                    (now - save_data.play_started_at).total_seconds()
                 )
-                save_data.clear_time_seconds = clear_seconds
 
-        # ゲームの状態を保存
         save_data.satisfaction = satisfaction
         save_data.energy = energy
         save_data.growth = growth
@@ -1058,58 +975,39 @@ def home(request):
         save_data.room_wallpaper = room_wallpaper
         save_data.items = items
         save_data.placed_items = placed_items
-        save_data.save()    # ゲーム終了判定を更新
-    game_end = energy <= 0 or growth >= 100
-
-
-    # -------------------------
-    # 自動セーブ＋ログ記録
-    # -------------------------
-
-    if request.user.is_authenticated:
-
-        # save_dataを取得（なければ新規作成）
-        save_data, created = SaveData.objects.get_or_create(user=request.user)
-
-        # プレイ時間を累積する
-        session_start_str = request.session.get('session_start')
-        if session_start_str:
-            from datetime import datetime as dt
-            session_start = dt.fromisoformat(session_start_str)
-            now = timezone.now()
-            elapsed_seconds = int((now - session_start).total_seconds())
-            if 0 < elapsed_seconds < 3600:
-                save_data.total_play_seconds += elapsed_seconds
-            request.session['session_start'] = timezone.now().isoformat()
-
-        # ゲームオーバーのログ
-        if energy <= 0 and before_energy > 0:
-            save_data.game_over_count += 1
-
-        # 育成完了のログ
-        if growth >= 100 and before_growth < 100:
-            save_data.clear_count += 1
-            if save_data.play_started_at:
-                clear_seconds = int(
-                    (timezone.now() - save_data.play_started_at).total_seconds()
-                )
-                save_data.clear_time_seconds = clear_seconds
-
-        # ゲームの状態を保存
-        save_data.satisfaction = satisfaction
-        save_data.energy = energy
-        save_data.growth = growth
-        save_data.fullness = fullness
-        save_data.turn = turn
-        save_data.remaining_time = remaining_time
-        save_data.play_count = play_count
-        save_data.healthy_food_count = healthy_food_count
-        save_data.snack_count = snack_count
-        save_data.character_state = character_state
-        save_data.room_wallpaper = room_wallpaper
-        save_data.items = items
-        save_data.placed_items = placed_items
+        save_data.tutorial_step = tutorial_step
+        save_data.new_items = new_items
+        save_data.notified_stage = notified_stage
         save_data.save()
+
+        # 行動ログ（いつ・何をしたか）
+        LOG_NAMES = {
+            'ball_game': 'ボールキャッチ', 'food_result': '好きなごはん選び',
+            'dodge_result': '障害物よけ', 'dance_result': 'ダンスまね',
+            'timing_result': '火加減チャレンジ', 'count_result': '食材かぞえ',
+            'rest': '休む', 'next_day': '次の日へ',
+        }
+        if action in LOG_NAMES:
+            if action == 'ball_game':
+                result_str = f"スコア:{get_int(request, 'score')}"
+            elif action == 'dodge_result':
+                result_str = f"ライフ:{get_int(request, 'lives')} スコア:{get_int(request, 'score')}"
+            elif action in ('food_result', 'timing_result', 'count_result'):
+                result_str = f"ライフ:{get_int(request, 'lives')}"
+            elif action == 'dance_result':
+                result_str = request.GET.get('result', 'fail')
+            else:
+                result_str = ''
+
+            # チュートリアル中の行動には印をつける（分析で除外できるように）
+            if was_tutorial:
+                result_str = (result_str + ' [練習]').strip()
+
+            ActionLog.objects.create(
+                user=request.user, action=LOG_NAMES[action], turn=turn,
+                energy=energy, fullness=fullness, satisfaction=satisfaction,
+                growth=growth, result=result_str,
+            )
 
     status = {
         'satisfaction': satisfaction,
@@ -1125,7 +1023,6 @@ def home(request):
         'character_animation': character_animation,
         'reaction_state': reaction_state,
         'character_state': character_state,
-        'food_image': food_image,
         'menu': menu,
         'remaining_time': remaining_time,
         'personality_name': personality_name,
@@ -1135,8 +1032,10 @@ def home(request):
         'difficulty_list': difficulty_list,
         'item_get': item_get,
         'get_item_image': get_item_image,
+        'get_item_name': get_item_name,
         'items': items,
-        'all_items': all_items,
+        'items_display': items_display,
+        'has_new_items': has_new_items,
         'owned_count': owned_count,
         'total_count': total_count,
         'collection_rate': collection_rate,
@@ -1144,12 +1043,24 @@ def home(request):
         'placed_item_images': placed_item_images,
         'room_wallpaper': background_image,
         'background_image': background_image,
-        'sleep_hours': remaining_time * 2,
-        "character_damage_image": f"images/character{growth_stage}-tired.png",
+        'sleep_hours': remaining_time,
+        'character_damage_image': f"images/character{growth_stage}-tired.png",
+        'tutorial_step': tutorial_step,
+        'tutorial_text': tutorial_text,
+        'tutorial_choice_required': request.session.get('tutorial_choice_required', False),
+        'in_tutorial': in_tutorial,
+        'afford': afford,
+        'sub_menu_items': sub_menu_items,
+        'difficulty_action': difficulty_action,
+        'difficulty_cost': difficulty_cost,
+        'difficulty_affordable': difficulty_affordable,
+        'hint_list': hint_list,
+        'initial_speech': reaction_text,
+        'tutorial_target': tutorial_target,
+        'unlock_labels': unlock_labels,
     }
 
     return render(request, 'turn_based_game/home.html', status)
-
 
 def debug_view(request):
     status = {
@@ -1220,6 +1131,7 @@ def ball_game(request):
         "ball_speed": current_settings['ball_speed'],
         "spawn_interval": current_settings['spawn_interval'],
         "score_multiplier": current_settings['score_multiplier'],
+        "character_damage_image": f"images/character{growth_stage}-tired.png",
     }
     return render(request, "turn_based_game/ball_game.html", status)
 
@@ -1402,10 +1314,10 @@ def timing_game(request):
         selected_difficulty = 'easy'
 
     TIMING_DIFFICULTY_SETTINGS = {
-        'easy':   {'round_count': 3, 'speed': 1.0, 'zone_width': 30},
+        'easy': {'round_count': 3, 'speed': 1.0, 'zone_width': 28},
         'normal': {'round_count': 4, 'speed': 1.5, 'zone_width': 22},
-        'hard':   {'round_count': 5, 'speed': 2.0, 'zone_width': 15},
-        'oni':    {'round_count': 6, 'speed': 2.8, 'zone_width': 10},
+        'hard': {'round_count': 5, 'speed': 2.0, 'zone_width': 17},
+        'oni': {'round_count': 6, 'speed': 2.8, 'zone_width': 13},
     }
     current_settings = TIMING_DIFFICULTY_SETTINGS[selected_difficulty]
 

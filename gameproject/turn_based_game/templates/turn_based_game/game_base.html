@@ -3,9 +3,8 @@
 <html lang="ja">
 
 <head>
-
 <meta charset="UTF-8">
-
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>{% block page_title %}ミニゲーム{% endblock %}</title>
 
 <style>
@@ -16,156 +15,105 @@ body{
     background-size:cover;
     background-position:center;
     font-family:sans-serif;
+    -webkit-tap-highlight-color:transparent;
+    touch-action:manipulation;
 }
 
 .game-container{
-    width:900px;
-    height:700px;
-    margin:30px auto;
+    width:100%; max-width:900px;
+    margin:0 auto; padding:8px 8px 20px;
+    box-sizing:border-box;
     background:rgba(255,255,255,0.6);
-    border-radius:20px;
     text-align:center;
 }
+.game-container h1{ font-size:clamp(20px,5vw,32px); margin:8px 0; }
 
 .status-bar{
-    display:flex;
-    justify-content:space-around;
-    font-size:24px;
-    margin-top:20px;
+    display:flex; flex-wrap:wrap; justify-content:space-around;
+    gap:4px 12px; font-size:clamp(14px,4vw,22px); margin-top:6px;
 }
 
 .game-area{
-    width:800px;
-    height:350px;
-    margin:20px auto;
-    border:3px solid #444;
+    width:100%; max-width:800px;
+    height:clamp(300px,46vh,400px);
+    margin:10px auto;
+    border:3px solid #444; box-sizing:border-box;
     background:rgba(255,255,255,0.4);
-    position:relative;
-    overflow:hidden;
+    position:relative; overflow:hidden;
 }
 
-.character-area{
-    margin-top:20px;
-}
+.character-area{ margin-top:10px; }
+.char-img, .character-area img{ height:clamp(80px,16vh,150px); }
 
-.character-area img{
-    height:180px;
-}
-
-.button-area{
-    margin-top:20px;
-}
-
+.button-area{ margin-top:12px; }
 .button-area a{
-    font-size:24px;
-    text-decoration:none;
-    padding:10px 30px;
-    border-radius:10px;
-    background:#6fa8dc;
-    color:white;
+    display:inline-block; font-size:20px; text-decoration:none;
+    padding:10px 30px; border-radius:10px;
+    background:#6fa8dc; color:white;
 }
 
+/* ルール説明 */
+#rules-screen{
+    display:none; position:fixed; top:0; left:0; width:100%; height:100%;
+    background:rgba(0,0,0,0.7);
+    justify-content:center; align-items:center; z-index:100;
+}
+#rules-box{
+    background:white; border-radius:16px;
+    width:88%; max-width:420px; max-height:85vh; overflow:auto;
+    padding:18px; box-sizing:border-box;
+    text-align:left; font-size:16px; line-height:1.7;
+}
+#rules-box h2{ margin:0 0 8px; text-align:center; font-size:20px; }
+#rules-start{
+    display:block; width:100%; margin-top:12px;
+    font-size:20px; padding:14px; border:none; border-radius:12px;
+    background:#42a5f5; color:white;
+}
 
+/* カウントダウン */
 #countdown-screen{
-    position:absolute;
-    top:0;
-    left:0;
-    width:100%;
-    height:100%;
-
-    display:flex;
-    justify-content:center;
-    align-items:center;
-
+    position:absolute; top:0; left:0; width:100%; height:100%;
+    display:none; justify-content:center; align-items:center;
     background:rgba(0,0,0,0.45);
-
-    color:white;
-    font-size:120px;
-    font-weight:bold;
-
-    z-index:40;
+    color:white; font-size:100px; font-weight:bold; z-index:40;
 }
-
-#countdown-text{
-    animation: pop 1s infinite;
-}
-
+#countdown-text{ animation:pop 1s infinite; }
 @keyframes pop{
-
-    0%{
-        transform:scale(0.5);
-    }
-
-    50%{
-        transform:scale(1.2);
-    }
-
-    100%{
-        transform:scale(1);
-    }
-
+    0%{ transform:scale(0.5); }
+    50%{ transform:scale(1.2); }
+    100%{ transform:scale(1); }
 }
 
+/* ゲーム終了画面 */
 #game-over{
-    display:none;
-    position:absolute;
-    top:0;
-    left:0;
-    width:100%;
-    height:100%;
-    background:rgba(0,0,0,0.6);
-    color:white;
-    flex-direction:column;
-    justify-content:center;
-    align-items:center;
-    font-size:20px;          /* 30px → 20px に縮小 */
-    text-align:center;
-    z-index:50;
+    display:none; position:absolute; top:0; left:0; width:100%; height:100%;
+    background:rgba(0,0,0,0.6); color:white;
+    flex-direction:column; justify-content:center; align-items:center;
+    font-size:20px; text-align:center; z-index:50;
+}
+#result-feedback{
+    display:flex; align-items:center; justify-content:center;
+    gap:12px; margin:6px 0;
+}
+#result-character{ height:70px; flex-shrink:0; }
+.speech-bubble{
+    position:relative; background:white; color:#333;
+    border-radius:12px; padding:8px 12px;
+    font-size:13px; font-weight:bold;
+    max-width:160px; text-align:left; line-height:1.4;
+}
+.speech-bubble::before{
+    content:""; position:absolute; left:-12px; top:50%;
+    transform:translateY(-50%);
+    border:6px solid transparent; border-right-color:white;
 }
 
-/* 結果フィードバック */
-#result-feedback {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 12px;
-    margin: 6px 0;
-}
-
-#result-character {
-    height: 70px;
-    flex-shrink: 0;
-}
-
-/* 吹き出し */
-.speech-bubble {
-    position: relative;
-    background: white;
-    color: #333;
-    border-radius: 12px;
-    padding: 8px 12px;
-    font-size: 13px;
-    font-weight: bold;
-    max-width: 160px;
-    text-align: left;
-    line-height: 1.4;
-}
-
-/* 吹き出しの三角（左向き） */
-.speech-bubble::before {
-    content: "";
-    position: absolute;
-    left: -12px;
-    top: 50%;
-    transform: translateY(-50%);
-    border: 6px solid transparent;
-    border-right-color: white;
-}
 {% block extra_style %}{% endblock %}
 
 </style>
-
 </head>
+
 
 <body>
 
@@ -174,80 +122,82 @@ body{
     <h1>{{ game_title }}</h1>
 
     <div class="status-bar">
-
         <div>スコア：<span id="score">0</span></div>
-
         <div>残り時間：<span id="time"></span>秒</div>
-
         {% block status_extra %}{% endblock %}
-
     </div>
 
     <div class="game-area" id="game-area">
 
-        <!-- カウントダウン画面 -->
-<div id="countdown-screen">
-    <div id="countdown-text">3</div>
-</div>
+        <!-- 3・2・1・START -->
+        <div id="countdown-screen">
+            <div id="countdown-text">3</div>
+        </div>
 
-{% block game_area %}{% endblock %}
+        {% block game_area %}{% endblock %}
 
         <!-- ゲーム終了画面 -->
-      <div id="game-over">
+        <div id="game-over">
+            <h2 style="margin:4px 0; font-size:22px;">ゲーム終了！</h2>
 
-    <h2 style="margin: 4px 0; font-size: 22px;">ゲーム終了！</h2>
+            <div id="result-feedback">
+                <img id="result-character" src="{% static character_image %}" alt="">
+                <div class="speech-bubble" id="result-speech"></div>
+            </div>
 
-    <div id="result-feedback">
-        <img id="result-character" src="{% static character_image %}">
-        <div class="speech-bubble" id="result-speech"></div>
-    </div>
-
-    <p style="margin: 4px 0;">
-        {% block result_label %}スコア{% endblock %}：<span id="final-score"></span>
-    </p>
-
-    <p style="margin: 4px 0; font-size: 14px;">ホーム画面へ戻ります…</p>
-
-</div>
+            <p style="margin:4px 0;">
+                {% block result_label %}スコア{% endblock %}：<span id="final-score"></span>
+            </p>
+            <p style="margin:4px 0; font-size:14px;">ホーム画面へ戻ります…</p>
+        </div>
 
     </div>
 
-    {# キャラクターエリア。ゲームによって上書きできるようにブロック化 #}
-{% block character_area %}
-
-<div class="character-area">
-    <img src="{% static character_image %}" id="character">
-</div>
-
-{% endblock %}
+    <div class="character-area">
+        {% block character_area %}
+        <img src="{% static character_image %}" id="character" alt="キャラクター">
+        {% endblock %}
+    </div>
 
     <div class="button-area">
-    <a href="{% url 'home' %}" id="back-button">戻る</a>
+        <a href="{% url 'home' %}" id="back-button">戻る</a>
+    </div>
+
 </div>
 
+
+<!-- ルール説明（中身は各ゲームに書く） -->
+<div id="rules-screen">
+    <div id="rules-box">
+        <h2>{{ game_title }}のあそびかた</h2>
+        <div id="rules-body">{% block rules %}{% endblock %}</div>
+        <button type="button" id="rules-start">わかった！スタート</button>
+    </div>
 </div>
 
 {% block config %}{% endblock %}
 
+
 <script>
 
-let gameStarted = false;
+// ゲームが始まったか（各ゲームが window.gameStarted で参照する）
+window.gameStarted = false;
 
-// 結果フィードバックを設定する共通関数
-// imageSrc：表示するキャラクター画像のパス
-// message ：吹き出しに表示するセリフ
-function showResultFeedback(imageSrc, message) {
+// 結果画面のキャラ画像とセリフを設定する
+function showResultFeedback(imageSrc, message){
     document.getElementById("result-character").src = imageSrc;
     document.getElementById("result-speech").textContent = message;
 }
 
-function startCountdown(callback){
+// 3・2・1・START のあと callback を実行する
+function runCountdown(callback){
 
     const screen = document.getElementById("countdown-screen");
     const text = document.getElementById("countdown-text");
 
-    let count = 3;
+    screen.style.display = "flex";
 
+    let count = 3;
     text.textContent = count;
 
     const timer = setInterval(function(){
@@ -255,27 +205,74 @@ function startCountdown(callback){
         count--;
 
         if(count > 0){
-
             text.textContent = count;
-
-        }else if(count == 0){
-
+        }else if(count === 0){
             text.textContent = "START!";
-
         }else{
-
             clearInterval(timer);
-
             screen.style.display = "none";
-
-            gameStarted = true;
-
+            window.gameStarted = true;
             callback();
-
         }
 
-    },1000);
+    }, 1000);
+}
 
+// ルール説明 → カウントダウン
+//   初回：説明を表示してからスタート
+//   2回目以降：「説明を見る」「スキップ」を選ばせる
+function startCountdown(callback){
+
+    const rulesScreen = document.getElementById("rules-screen");
+    const rulesBody = document.getElementById("rules-body");
+    const rulesStart = document.getElementById("rules-start");
+
+    // 説明が書かれていないゲームはそのままカウントダウン
+    if(!rulesScreen || !rulesBody || rulesBody.textContent.trim() === ""){
+        runCountdown(callback);
+        return;
+    }
+
+    const originalRules = rulesBody.innerHTML;
+    const storageKey = "rules_seen_{{ game_title|escapejs }}";
+
+    let seen = false;
+    try{ seen = localStorage.getItem(storageKey) === "1"; }catch(e){}
+
+    function go(){
+        rulesScreen.style.display = "none";
+        runCountdown(callback);
+    }
+
+    function showRules(){
+        rulesBody.innerHTML = originalRules;
+        rulesStart.style.display = "block";
+        rulesStart.onclick = function(){
+            try{ localStorage.setItem(storageKey, "1"); }catch(e){}
+            go();
+        };
+        rulesScreen.style.display = "flex";
+    }
+
+    if(!seen){
+        showRules();
+        return;
+    }
+
+    // 2回目以降
+    rulesBody.innerHTML =
+        '<div style="text-align:center;">' +
+        '<p style="font-weight:bold;font-size:18px;">ゲームの説明を見ますか？</p>' +
+        '<div style="display:flex;gap:10px;margin-top:15px;">' +
+        '<button type="button" id="rules-view" style="flex:1;font-size:18px;padding:12px;border:none;border-radius:10px;background:#42a5f5;color:white;">説明を見る</button>' +
+        '<button type="button" id="rules-skip" style="flex:1;font-size:18px;padding:12px;border:none;border-radius:10px;background:#aaa;color:white;">スキップ</button>' +
+        '</div></div>';
+
+    rulesStart.style.display = "none";
+    rulesScreen.style.display = "flex";
+
+    document.getElementById("rules-view").onclick = showRules;
+    document.getElementById("rules-skip").onclick = go;
 }
 
 </script>
@@ -285,5 +282,4 @@ function startCountdown(callback){
 </script>
 
 </body>
-
 </html>

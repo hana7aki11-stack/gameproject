@@ -2,60 +2,69 @@
 {% load static %}
 
 {% block page_title %}好きなごはん選び{% endblock %}
-{# ブラウザのタブに表示されるタイトル #}
+
+{% block rules %}
+<p><b>このゲームでは、好きな食べ物を見つけます。</b></p>
+<p>上から落ちてくるごはんの中から、<b>画面上に表示されている「好きな食べ物」</b>だけをタップ！</p>
+<p>好きな物を見逃す、または違う物をタップすると❤が減ります。❤が0になると終了です。</p>
+{% endblock %}
 
 {% block result_label %}残りライフ{% endblock %}
-{# ゲーム終了画面のラベルを「スコア」から「残りライフ」に変更 #}
-
 
 {% block extra_style %}
 
-/* タップ成功エフェクト */
 .score-popup {
-    position: absolute;
-    font-size: 28px;
-    font-weight: bold;
-    color: #4caf50;
-    pointer-events: none;
-    animation: popUp 0.8s ease-out forwards;
-    z-index: 30;
+    position:absolute;
+    font-size:28px;
+    font-weight:bold;
+    color:#4caf50;
+    pointer-events:none;
+    animation:popUp 0.8s ease-out forwards;
+    z-index:30;
 }
 
 @keyframes popUp {
-    0%   { opacity: 1; transform: translateY(0); }
-    100% { opacity: 0; transform: translateY(-50px); }
+    0%{
+        opacity:1;
+        transform:translateY(0);
+    }
+    100%{
+        opacity:0;
+        transform:translateY(-50px);
+    }
 }
 
-/* 当たり食べ物のサムネイル */
 .favorite-icon {
-    width: 40px;
-    vertical-align: middle;
-    margin: 0 4px;
-    filter: drop-shadow(0 0 4px gold); /* 落下中と同じ光る枠 */
+    width:40px;
+    vertical-align:middle;
+    margin:0 4px;
+    filter:drop-shadow(0 0 4px gold);
 }
-
-
-{# 好きなごはん選び専用のCSS #}
 
 .food-item{
-    position:absolute;   /* 自由に位置を動かすため */
-    cursor:pointer;       /* クリック可能を示すマウスカーソル */
-    top:-60px;            /* 画面上の外側からスタートさせる */
+    position:absolute;
+    cursor:pointer;
+    top:-60px;
+    user-select:none;
+    -webkit-user-select:none;
+    touch-action:manipulation;
 }
 
 .lives{
-    color:#e53935;        /* ライフ（❤）の文字色 */
-    letter-spacing:4px;   /* ❤同士の間隔を広げる */
+    color:#e53935;
+    letter-spacing:4px;
 }
+
 {% endblock %}
 
 
 {% block status_extra %}
 
-{# ライフ表示 #}
-<div>ライフ：<span class="lives" id="lives">❤❤❤</span></div>
+<div>
+    ライフ：
+    <span class="lives" id="lives">❤❤❤</span>
+</div>
 
-{# 当たりの食べ物一覧（JSで動的に追加される） #}
 <div>
     好きな食べ物：
     <span id="favorite-list"></span>
@@ -65,13 +74,10 @@
 
 
 {% block game_area %}
-<!-- 食べ物はJSで動的に追加される -->
-{# このブロックは空。食べ物はJavaScript側でgame-areaに直接追加していく #}
 {% endblock %}
 
 
 {% block config %}
-{# views.pyから渡した難易度・食材データをJS用に埋め込む（非表示） #}
 
 <div id="game-config"
      data-difficulty="{{ selected_difficulty }}"
@@ -82,322 +88,724 @@
      style="display:none;">
 </div>
 
-{# 食べ物画像のパス一覧をJSで読み取れる形で並べておく #}
 <div id="food-images" style="display:none;">
+
     {% for img in food_item_images %}
-        <span class="food-src" data-src="{% static img %}"></span>
+
+        <span
+            class="food-src"
+            data-src="{% static img %}">
+        </span>
+
     {% endfor %}
+
 </div>
 
 {% endblock %}
 
 
 {% block script %}
-// 食べ物画像のパス一覧を配列として取得
-const foodSrcElements = document.querySelectorAll(".food-src");
-const foodImages = Array.from(foodSrcElements).map(el => el.dataset.src);
 
-// 当たりにする個数（食べ物の種類数を超えないように調整）
-const FAVORITE_COUNT = Math.min(3, foodImages.length);
+(function () {
 
-// 配列の中身をランダムな順番に並べ替える関数
-function shuffleArray(array) {
-    const result = array.slice();
-    for (let i = result.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        const temp = result[i];
-        result[i] = result[j];
-        result[j] = temp;
-    }
-    return result;
-}
+    /* =========================================================
+       食べ物一覧
+       ========================================================= */
 
-// 食べ物画像の順番をシャッフルして当たり/ハズレを決める
-const shuffledImages = shuffleArray(foodImages);
-const favoriteFoods = {};
+    const foodSrcElements =
+        document.querySelectorAll(".food-src");
 
-foodImages.forEach(function(src) {
-    const shuffledIndex = shuffledImages.indexOf(src);
-    favoriteFoods[src] = shuffledIndex < FAVORITE_COUNT;
-});
+    const foodImages =
+        Array.from(foodSrcElements)
+            .map(function (el) {
+                return el.dataset.src;
+            })
+            .filter(Boolean);
 
-// 当たりの画像を「好きな食べ物」欄に表示する
-const favoriteList = document.getElementById("favorite-list");
 
-foodImages.forEach(function(src) {
-    if (favoriteFoods[src]) {
-        const icon = document.createElement("img");
-        icon.src = src;
-        icon.className = "favorite-icon";
-        favoriteList.appendChild(icon);
-    }
-});
-
-// 難易度の設定値を取得
-const config = document.getElementById("game-config");
-
-const difficulty = config.dataset.difficulty;
-const flowSpeed = parseFloat(config.dataset.flowSpeed);
-const spawnInterval = parseInt(config.dataset.spawnInterval);
-const scoreMultiplier = parseFloat(config.dataset.scoreMultiplier);
-
-// 制限時間（秒）
-let timeLeft = parseInt(config.dataset.timeLimit);
-
-// キャラクター画像の要素とパス
-const character = document.getElementById("character");
-const normalImage = "{% static character_image %}";
-const happyImage = "{% static character_happy_image %}";
-
-// ゲームエリアと表示要素を取得
-const area = document.getElementById("game-area");
-const scoreDisplay = document.getElementById("score");
-const timeDisplay = document.getElementById("time");
-const livesDisplay = document.getElementById("lives");
-
-// スコア・ライフの初期化
-let score = 0;
-let lives = 3;
-
-timeDisplay.textContent = timeLeft;
-
-// 食べ物画像のサイズ
-const FOOD_SIZE = 200;
-
-// ゲーム終了処理が二重に呼ばれないようにするための目印
-let gameEnded = false;
-
-let spawnTimer;
-let countdownTimer;
-
-// -------------------------
-// タップした場所に ✓ が浮かび上がるエフェクト
-// -------------------------
-
-function showScorePopup(x, y) {
-
-    const popup = document.createElement("div");
-    popup.className = "score-popup";
-    popup.textContent = "✓";
-
-    popup.style.left = x + "px";
-    popup.style.top = y + "px";
-
-    area.appendChild(popup);
-
-    setTimeout(function () {
-        popup.remove();
-    }, 800);
-}
-
-// -------------------------
-// ミス時にライフを1つ減らす処理
-// -------------------------
-
-function missAction() {
-
-    lives--;
-
-    livesDisplay.textContent = "❤".repeat(Math.max(lives, 0)) +
-                                "🖤".repeat(3 - Math.max(lives, 0));
-
-    if (lives <= 0) {
-        endGame();
-    }
-}
-
-// -------------------------
-// クリック成功時にキャラを一瞬Happy画像にする
-// -------------------------
-
-function happyCharacter() {
-
-    character.src = happyImage;
-
-    setTimeout(function () {
-        character.src = normalImage;
-    }, 400);
-}
-
-// -------------------------
-// 食べ物を1つ生成して落としてくる関数
-// -------------------------
-
-function spawnFood() {
-
-    const img = document.createElement("img");
-    img.className = "food-item";
-    img.style.width = FOOD_SIZE + "px";
-
-    const src = foodImages[Math.floor(Math.random() * foodImages.length)];
-    img.src = src;
-
-    const isFavorite = favoriteFoods[src];
-
-    img.dataset.favorite = isFavorite ? "true" : "false";
-    img.dataset.handled = "false";
-
-    if (isFavorite) {
-        img.style.filter = "drop-shadow(0 0 6px gold)";
+    if (foodImages.length === 0) {
+        console.error(
+            "food_item_images がありません。"
+        );
     }
 
-    const maxX = area.clientWidth - FOOD_SIZE;
-    const startX = Math.random() * maxX;
-    img.style.left = startX + "px";
-    img.style.top = -FOOD_SIZE + "px";
 
-    area.appendChild(img);
+    const FAVORITE_COUNT =
+        Math.min(
+            3,
+            foodImages.length
+        );
 
-    const fallDuration = 3000 / flowSpeed;
-    const startTime = performance.now();
 
-    // 食べ物を少しずつ下に落とすアニメーション処理
-    function fall() {
+    function shuffleArray(array) {
 
-        if (img.dataset.handled === "true") {
+        const result =
+            array.slice();
+
+        for (
+            let i = result.length - 1;
+            i > 0;
+            i--
+        ) {
+
+            const j =
+                Math.floor(
+                    Math.random() * (i + 1)
+                );
+
+            const temp =
+                result[i];
+
+            result[i] =
+                result[j];
+
+            result[j] =
+                temp;
+        }
+
+        return result;
+    }
+
+
+    const shuffledImages =
+        shuffleArray(foodImages);
+
+    const favoriteFoods = {};
+
+    foodImages.forEach(function (src) {
+
+        const index =
+            shuffledImages.indexOf(src);
+
+        favoriteFoods[src] =
+            index >= 0 &&
+            index < FAVORITE_COUNT;
+    });
+
+
+    const favoriteList =
+        document.getElementById(
+            "favorite-list"
+        );
+
+    foodImages.forEach(function (src) {
+
+        if (favoriteFoods[src]) {
+
+            const icon =
+                document.createElement("img");
+
+            icon.src = src;
+            icon.className =
+                "favorite-icon";
+
+            icon.alt = "";
+
+            favoriteList.appendChild(icon);
+        }
+    });
+
+
+    /* =========================================================
+       設定値
+       ========================================================= */
+
+    const config =
+        document.getElementById(
+            "game-config"
+        );
+
+    const difficulty =
+        config.dataset.difficulty || "easy";
+
+    const parsedFlowSpeed =
+        parseFloat(
+            config.dataset.flowSpeed
+        );
+
+    const parsedSpawnInterval =
+        parseInt(
+            config.dataset.spawnInterval
+        );
+
+    const parsedScoreMultiplier =
+        parseFloat(
+            config.dataset.scoreMultiplier
+        );
+
+    const flowSpeed =
+        Number.isFinite(parsedFlowSpeed) &&
+        parsedFlowSpeed > 0
+            ? parsedFlowSpeed
+            : 1;
+
+    const spawnInterval =
+        Number.isFinite(parsedSpawnInterval) &&
+        parsedSpawnInterval > 0
+            ? parsedSpawnInterval
+            : 1000;
+
+    const scoreMultiplier =
+        Number.isFinite(parsedScoreMultiplier) &&
+        parsedScoreMultiplier > 0
+            ? parsedScoreMultiplier
+            : 1;
+
+    let timeLeft =
+        parseInt(
+            config.dataset.timeLimit
+        );
+
+    if (
+        !Number.isFinite(timeLeft) ||
+        timeLeft <= 0
+    ) {
+        timeLeft = 20;
+    }
+
+
+    /* =========================================================
+       要素
+       ========================================================= */
+
+    const character =
+        document.getElementById(
+            "character"
+        );
+
+    const normalImage =
+        "{% static character_image %}";
+
+    const happyImage =
+        "{% static character_happy_image %}";
+
+    const damageImage =
+        "{% static character_damage_image %}";
+
+    const area =
+        document.getElementById(
+            "game-area"
+        );
+
+    const scoreDisplay =
+        document.getElementById(
+            "score"
+        );
+
+    const timeDisplay =
+        document.getElementById(
+            "time"
+        );
+
+    const livesDisplay =
+        document.getElementById(
+            "lives"
+        );
+
+    const backButton =
+        document.getElementById(
+            "back-button"
+        );
+
+
+    /* =========================================================
+       ゲーム状態
+       ========================================================= */
+
+    let score = 0;
+    let lives = 3;
+
+    let gameEnded = false;
+
+    let spawnTimer = null;
+    let countdownTimer = null;
+
+    const animationFrames =
+        new Set();
+
+    const temporaryTimers =
+        new Set();
+
+
+    timeDisplay.textContent =
+        timeLeft;
+
+
+    const FOOD_SIZE =
+        Math.min(
+            200,
+            Math.round(
+                area.clientWidth * 0.3
+            )
+        );
+
+
+    /* =========================================================
+       タイマー登録
+       ========================================================= */
+
+    function addTimeout(callback, delay) {
+
+        const id =
+            setTimeout(function () {
+
+                temporaryTimers.delete(id);
+
+                callback();
+
+            }, delay);
+
+        temporaryTimers.add(id);
+
+        return id;
+    }
+
+
+    /* =========================================================
+       スコアエフェクト
+       ========================================================= */
+
+    function showScorePopup(x, y) {
+
+        if (gameEnded) {
             return;
         }
 
-        const elapsed = performance.now() - startTime;
-        const progress = elapsed / fallDuration;
+        const popup =
+            document.createElement("div");
 
-        if (progress >= 1) {
+        popup.className =
+            "score-popup";
 
-            if (img.dataset.favorite === "true") {
+        popup.textContent = "✓";
+
+        popup.style.left =
+            x + "px";
+
+        popup.style.top =
+            y + "px";
+
+        area.appendChild(popup);
+
+        addTimeout(function () {
+
+            if (popup.parentNode) {
+                popup.remove();
+            }
+
+        }, 800);
+    }
+
+
+    /* =========================================================
+       ミス
+       ========================================================= */
+
+    function missAction() {
+
+        if (gameEnded) {
+            return;
+        }
+
+        lives--;
+
+        livesDisplay.textContent =
+            "❤".repeat(
+                Math.max(lives, 0)
+            ) +
+            "🖤".repeat(
+                Math.max(0, 3 - Math.max(lives, 0))
+            );
+
+        if (lives <= 0) {
+            endGame();
+        }
+    }
+
+
+    /* =========================================================
+       キャラクター
+       ========================================================= */
+
+    function happyCharacter() {
+
+        if (gameEnded) {
+            return;
+        }
+
+        character.src =
+            happyImage;
+
+        addTimeout(function () {
+
+            if (!gameEnded) {
+                character.src =
+                    normalImage;
+            }
+
+        }, 400);
+    }
+
+
+    /* =========================================================
+       食べ物生成
+       ========================================================= */
+
+    function spawnFood() {
+
+        if (
+            gameEnded ||
+            foodImages.length === 0
+        ) {
+            return;
+        }
+
+        const img =
+            document.createElement("img");
+
+        img.className =
+            "food-item";
+
+        img.style.width =
+            FOOD_SIZE + "px";
+
+        const src =
+            foodImages[
+                Math.floor(
+                    Math.random() *
+                    foodImages.length
+                )
+            ];
+
+        img.src = src;
+
+        const isFavorite =
+            favoriteFoods[src];
+
+        img.dataset.favorite =
+            isFavorite ? "true" : "false";
+
+        img.dataset.handled =
+            "false";
+
+        if (isFavorite) {
+            img.style.filter =
+                "drop-shadow(0 0 6px gold)";
+        }
+
+        const maxX =
+            Math.max(
+                0,
+                area.clientWidth - FOOD_SIZE
+            );
+
+        const startX =
+            Math.random() * maxX;
+
+        img.style.left =
+            startX + "px";
+
+        img.style.top =
+            -FOOD_SIZE + "px";
+
+        area.appendChild(img);
+
+
+        const fallDuration =
+            Math.max(
+                100,
+                3000 / flowSpeed
+            );
+
+        const startTime =
+            performance.now();
+
+
+        let frameId = null;
+
+
+        function fall() {
+
+            if (
+                gameEnded ||
+                img.dataset.handled === "true"
+            ) {
+
+                if (frameId !== null) {
+                    animationFrames.delete(frameId);
+                }
+
+                if (img.parentNode) {
+                    img.remove();
+                }
+
+                return;
+            }
+
+            const elapsed =
+                performance.now() -
+                startTime;
+
+            const progress =
+                elapsed / fallDuration;
+
+            if (progress >= 1) {
+
+                if (
+                    img.dataset.favorite ===
+                    "true"
+                ) {
+                    missAction();
+                }
+
+                img.dataset.handled =
+                    "true";
+
+                if (img.parentNode) {
+                    img.remove();
+                }
+
+                if (frameId !== null) {
+                    animationFrames.delete(frameId);
+                }
+
+                return;
+            }
+
+            img.style.top =
+                (
+                    progress *
+                    (area.clientHeight + FOOD_SIZE) -
+                    FOOD_SIZE
+                ) + "px";
+
+            frameId =
+                requestAnimationFrame(fall);
+
+            animationFrames.add(frameId);
+        }
+
+
+        frameId =
+            requestAnimationFrame(fall);
+
+        animationFrames.add(frameId);
+
+
+        function handleFoodHit(e) {
+
+            if (
+                gameEnded ||
+                img.dataset.handled === "true"
+            ) {
+                return;
+            }
+
+            e.preventDefault();
+
+            img.dataset.handled =
+                "true";
+
+            const areaRect =
+                area.getBoundingClientRect();
+
+            const x =
+                e.clientX -
+                areaRect.left;
+
+            const y =
+                e.clientY -
+                areaRect.top;
+
+            if (
+                img.dataset.favorite ===
+                "true"
+            ) {
+
+                score +=
+                    scoreMultiplier;
+
+                scoreDisplay.textContent =
+                    Math.round(score);
+
+                showScorePopup(x, y);
+
+                happyCharacter();
+
+            } else {
+
                 missAction();
             }
 
-            img.dataset.handled = "true";
-            img.remove();
+            if (frameId !== null) {
+                cancelAnimationFrame(frameId);
+                animationFrames.delete(frameId);
+            }
+
+            if (img.parentNode) {
+                img.remove();
+            }
+        }
+
+
+        img.addEventListener(
+            "click",
+            handleFoodHit
+        );
+    }
+
+
+    /* =========================================================
+       ゲーム終了
+       ========================================================= */
+
+    function endGame() {
+
+        if (gameEnded) {
             return;
         }
 
-        img.style.top = (progress * (area.clientHeight + FOOD_SIZE) - FOOD_SIZE) + "px";
+        gameEnded = true;
 
-        requestAnimationFrame(fall);
+        if (backButton) {
+            backButton.style.pointerEvents =
+                "none";
+
+            backButton.style.opacity =
+                "0.4";
+        }
+
+        clearInterval(spawnTimer);
+        clearInterval(countdownTimer);
+
+        spawnTimer = null;
+        countdownTimer = null;
+
+        animationFrames.forEach(
+            function (id) {
+                cancelAnimationFrame(id);
+            }
+        );
+
+        animationFrames.clear();
+
+        temporaryTimers.forEach(
+            function (id) {
+                clearTimeout(id);
+            }
+        );
+
+        temporaryTimers.clear();
+
+        document
+            .querySelectorAll(".food-item")
+            .forEach(function (el) {
+                el.remove();
+            });
+
+
+        const finalLives =
+            Math.max(lives, 0);
+
+
+        let resultImg;
+        let resultMsg;
+
+        if (finalLives === 3) {
+
+            resultImg = happyImage;
+            resultMsg =
+                "ぜんぶ好物だけ選べたよ！さいこう！";
+
+        } else if (finalLives === 2) {
+
+            resultImg = happyImage;
+            resultMsg =
+                "上手に選べたよ！";
+
+        } else if (finalLives === 1) {
+
+            resultImg = normalImage;
+            resultMsg =
+                "もうすこしで完璧だったのに…";
+
+        } else {
+
+            resultImg = damageImage;
+            resultMsg =
+                "苦手なものを食べちゃった…";
+        }
+
+
+        showResultFeedback(
+            resultImg,
+            resultMsg
+        );
+
+        document.getElementById(
+            "game-over"
+        ).style.display = "flex";
+
+        document.getElementById(
+            "final-score"
+        ).textContent =
+            "❤".repeat(finalLives);
+
+
+        setTimeout(function () {
+
+            window.location.href =
+                "{% url 'home' %}" +
+                "?action=food_result" +
+                "&lives=" + finalLives +
+                "&difficulty=" +
+                encodeURIComponent(difficulty);
+
+        }, 3000);
     }
 
-    requestAnimationFrame(fall);
 
-    // クリック・タップ時の処理
-    function handleFoodHit(e) {
+    /* =========================================================
+       ゲーム開始
+       ========================================================= */
 
-        e.preventDefault();
+    startCountdown(function () {
 
-        if (img.dataset.handled === "true") {
+        if (gameEnded) {
             return;
         }
 
-        img.dataset.handled = "true";
+        spawnTimer =
+            setInterval(
+                spawnFood,
+                spawnInterval
+            );
 
-        // タップ・クリックした座標をゲームエリア基準に変換
-        const areaRect = area.getBoundingClientRect();
-        let clientX, clientY;
+        countdownTimer =
+            setInterval(function () {
 
-        if (e.touches && e.touches.length > 0) {
-            clientX = e.touches[0].clientX;
-            clientY = e.touches[0].clientY;
-        } else {
-            clientX = e.clientX;
-            clientY = e.clientY;
-        }
+                if (gameEnded) {
+                    clearInterval(
+                        countdownTimer
+                    );
+                    return;
+                }
 
-        const x = clientX - areaRect.left;
-        const y = clientY - areaRect.top;
+                timeLeft--;
 
-        if (img.dataset.favorite === "true") {
-            score += scoreMultiplier;
-            scoreDisplay.textContent = Math.round(score);
-            showScorePopup(x, y);
-            happyCharacter();
-        } else {
-            missAction();
-        }
+                timeDisplay.textContent =
+                    Math.max(
+                        timeLeft,
+                        0
+                    );
 
-        img.remove();
-    }
+                if (timeLeft <= 0) {
+                    endGame();
+                }
 
-    // PC用（クリック）
-    img.addEventListener("click", handleFoodHit);
+            }, 1000);
+    });
 
-    // スマホ用（タップ）
-    img.addEventListener("touchstart", handleFoodHit);
-
-}
-// ← spawnFood() はここで閉じる
-
-// -------------------------
-// ゲーム終了時の処理
-// -------------------------
-function endGame() {
-
-    if (gameEnded) return;
-    gameEnded = true;
-
-    // 戻るボタンを無効化
-    document.getElementById("back-button").style.pointerEvents = "none";
-    document.getElementById("back-button").style.opacity = "0.4";
-
-    clearInterval(spawnTimer);
-    clearInterval(countdownTimer);
-
-    document.querySelectorAll(".food-item").forEach(el => el.remove());
-
-    // finalLivesを先に定義する
-    const finalLives = Math.max(lives, 0);
-
-    // フィードバックの設定（finalLivesを定義した後に書く）
-    const normalImg = "{% static character_image %}";
-    const happyImg = "{% static character_happy_image %}";
-    const tiredImg = "{% static character_damage_image %}";
-
-    let resultImg, resultMsg;
-
-    if (finalLives === 3) {
-        resultImg = happyImg;
-        resultMsg = "ぜんぶ好物だけ選べたよ！さいこう！";
-    } else if (finalLives === 2) {
-        resultImg = happyImg;
-        resultMsg = "上手に選べたよ！";
-    } else if (finalLives === 1) {
-        resultImg = normalImg;
-        resultMsg = "もうすこしで完璧だったのに…";
-    } else {
-        resultImg = tiredImg;
-        resultMsg = "苦手なものを食べちゃった…";
-    }
-
-    showResultFeedback(resultImg, resultMsg);
-
-    // ゲーム終了画面を表示（1回だけ）
-    document.getElementById("game-over").style.display = "flex";
-    document.getElementById("final-score").textContent = "❤".repeat(finalLives);
-
-    setTimeout(function () {
-        window.location.href =
-            "{% url 'home' %}?action=food_result&lives=" + finalLives +
-            "&difficulty=" + difficulty;
-    }, 3000);
-}
-
-// -------------------------
-// カウントダウン後にゲーム開始
-// -------------------------
-
-startCountdown(function () {
-
-    spawnTimer = setInterval(spawnFood, spawnInterval);
-
-    countdownTimer = setInterval(function () {
-
-        timeLeft--;
-        timeDisplay.textContent = timeLeft;
-
-        if (timeLeft <= 0) {
-            endGame();
-        }
-
-    }, 1000);
-});
+})();
 
 {% endblock %}

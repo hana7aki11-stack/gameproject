@@ -5,6 +5,7 @@
 
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
 
     <style>
 
@@ -12,6 +13,47 @@
             font-family: sans-serif;
             text-align: center;
         }
+
+     /* チュートリアル */
+.tutorial-banner{
+    max-width:500px; margin:10px auto; padding:12px 16px;
+    background:#fff8e1; border:2px solid #f0d98c; border-radius:12px;
+    font-size:16px; text-align:left; line-height:1.6;
+}
+.tutorial-highlight{
+    outline:3px solid #ffb300;
+    animation:pulse 1s infinite;
+}
+@keyframes pulse{ 0%,100%{ transform:scale(1); } 50%{ transform:scale(1.06); } }
+
+/* ポップアップ（イントロ・アイテム獲得） */
+.modal-bg{
+    position:fixed; top:0; left:0; width:100%; height:100%;
+    background:rgba(0,0,0,0.6);
+    display:flex; align-items:center; justify-content:center;
+    z-index:1000;
+}
+.modal-box{
+    background:#fff; border-radius:16px; padding:20px;
+    max-width:340px; width:85%; text-align:center; box-sizing:border-box;
+}
+
+/* NEWマーク */
+.new-badge{
+    background:#e53935; color:#fff; font-size:12px;
+    border-radius:8px; padding:2px 6px; margin-left:6px;
+}
+
+/* スマホ縦画面 */
+@media (max-width: 600px){
+    h1{ font-size:22px; }
+    .status-panel{ width:92%; box-sizing:border-box; }
+    .status-item span{ width:60px; font-size:13px; }
+    .action-button{ width:92%; min-width:0; margin:6px 0; padding:16px 10px; font-size:22px; }
+    .action-card{ width:42%; margin:4px; padding:8px; box-sizing:border-box; }
+    .sub-action-button{ width:100%; min-width:0; margin:4px 0; padding:12px 4px; font-size:16px; }
+}
+
 
 .event-message {
     position: relative;
@@ -240,12 +282,6 @@
     overflow: hidden;
 }
 
-.bar-fill {
-    height: 100%;
-    border-radius: 999px;
-
-    transition: width 0.4s ease;
-}
 
 .bar-fill {
     height: 100%;
@@ -273,6 +309,93 @@
 </head>
 
 <body>
+
+{# 2回目以降のニューゲーム：チュートリアル選択 #}
+{% if tutorial_choice_required %}
+<div class="modal-bg" id="tutorial-choice-overlay">
+    <div class="modal-box">
+
+        <h2>チュートリアル</h2>
+
+        <p style="line-height:1.8;">
+            イントロとチュートリアルを<br>
+            もう一度見ますか？
+        </p>
+
+        <form method="GET" style="display:inline;">
+            <button
+                type="submit"
+                name="action"
+                value="tutorial_view"
+                class="sub-action-button">
+                見る
+            </button>
+        </form>
+
+        <form method="GET" style="display:inline;">
+            <button
+                type="submit"
+                name="action"
+                value="tutorial_skip"
+                class="sub-action-button">
+                スキップ
+            </button>
+        </form>
+
+    </div>
+</div>
+
+{# 初回または「見る」を選択した場合：ゲームイントロ #}
+{% elif tutorial_step == 0 %}
+<div class="modal-bg" id="intro-overlay">
+    <div class="modal-box">
+        <div id="intro-text"
+             style="font-size:18px; line-height:1.8; min-height:130px;">
+        </div>
+
+        <div id="intro-dots"
+             style="margin:8px 0; color:#999;">
+        </div>
+
+        <button id="intro-next"
+                class="sub-action-button">
+            つぎへ
+        </button>
+    </div>
+</div>
+{% endif %}
+
+{# アイテム獲得ポップアップ #}
+{% if item_get %}
+<div class="modal-bg" id="item-modal">
+    <div class="modal-box">
+        <div style="font-size:36px;">🎁</div>
+        <h3>新しいアイテムをGET！</h3>
+        <img src="{% static get_item_image %}" width="120">
+        <p>「{{ get_item_name }}」を手に入れました！<br>「持ち物一覧」から飾れます。</p>
+        <button class="sub-action-button"
+                onclick="document.getElementById('item-modal').style.display='none'">OK</button>
+    </div>
+</div>
+{% endif %}
+
+{# 難易度解放のお知らせ #}
+{% if unlock_labels %}
+<div class="modal-bg" id="unlock-modal">
+    <div class="modal-box">
+        <div style="font-size:36px;">🔓</div>
+        <h3>むずかしさが解放されました！</h3>
+        <p>
+            {% for name in unlock_labels %}「{{ name }}」{% if not forloop.last %}、{% endif %}{% endfor %}
+            が選べるようになったよ！<br>
+            どのミニゲームでも、難易度選択で選べます。
+        </p>
+        <button class="sub-action-button"
+                onclick="document.getElementById('unlock-modal').style.display='none'">OK</button>
+    </div>
+</div>
+{% endif %}
+
 <h1>ターン制育成ゲーム</h1>
 
     <div style="
@@ -406,8 +529,8 @@
 ">
 
        <!-- 背景＋キャラクター -->
-<div style="
-    position: relative;
+<div id="room-wrap">
+    <div id="room" style="position: relative;
     width: 600px;
     height: 400px;
     background-image:url('{% static background_image %}');
@@ -456,69 +579,26 @@
 {% endif %}
 
 <!-- キャラ＆メッセージ -->
-<div style="
-  position: absolute;
-  left: 50%;
-  bottom: 80px;
-  transform: translateX(-50%);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-">
+<div style="position: absolute; left: 50%; bottom: 80px; transform: translateX(-50%);
+            display: flex; flex-direction: column; align-items: center;">
 
   {% if event_message %}
-  <div class="event-message">
-    {{ event_message }}
-  </div>
+  <div class="event-message">{{ event_message }}</div>
   {% endif %}
 
-  <img
-    src="{% static character_image %}"
-    width="220"
-    style="display:block; animation: {{ character_animation }};"
-  >
+  {# キャラクターのセリフ用（JSで表示） #}
+  <div id="char-speech" class="event-message" style="display:none;"></div>
+
+  <img id="room-character"
+       src="{% static character_image %}"
+       width="220"
+       onclick="tapCharacter()"
+       style="display:block; cursor:pointer; animation: {{ character_animation }};">
 
 </div>
 
 
          <!-- キャラクター -->
-
-<!-- 食べ物エフェクト -->
-{% if last_action == 'salad' or last_action == 'snack' or last_action == 'meal' %}
-<img class="effect-icon"
-     src="{% static 'images/'|add:last_action|add:'.png' %}"
-     width="90"
-     style="
-        position:absolute;
-        top:90px;
-        left:63%;
-        animation: foodAppear 1.5s ease-out forwards;
-        pointer-events:none;
-        z-index:10;
-">
-{% endif %}
-
-
-
-
-　<!-- 遊ぶエフェクト -->
-{% if last_action == 'ball' or last_action == 'toy' or last_action == 'bike' %}
-
-<img class="effect-icon"
-     src="{% static 'images/'|add:last_action|add:'.png' %}"
-     width="90"
-     style="
-        position:absolute;
-        top:90px;
-        left:63%;
-        animation:
-            bounceBall 0.5s ease-in-out 2,
-            foodAppear 1.5s ease-out forwards;
-        pointer-events:none;
-        z-index:10;
-">
-
-{% endif %}
 
             <!-- Zzz -->
             {% if last_action == 'rest' %}
@@ -537,6 +617,7 @@ pointer-events: none;
 
 
         </div>
+</div>
 
 
 
@@ -580,545 +661,169 @@ pointer-events: none;
 
 {% endif %}
 
+{% if tutorial_text %}
+<div class="tutorial-banner">
+    {{ tutorial_text|linebreaksbr }}
+    {% if in_tutorial %}
+    {# 開発中の詰まり対策。実験で全員に必ず受けさせたい場合はこの3行を削除 #}
+    <div style="text-align:right; margin-top:6px;">
+        <a href="?action=tutorial_skip" style="font-size:12px; color:#999;"
+           onclick="return confirm('チュートリアルをスキップしますか？');">スキップ</a>
+    </div>
+    {% endif %}
+</div>
+{% endif %}
 
+<!-- 行動 -->
+<h2>行動</h2>
 
-    <!-- 行動 -->
-    <h2>行動</h2>
-
-    {% if remaining_time == 0 and not game_end %}
-    <p style="color: red;">
-        今日の時間を使い切りました。「次の日へ」を押してください。
-    </p>
+{% if remaining_time == 0 and not game_end and not in_tutorial %}
+<p style="color: red;">
+    今日の時間を使い切りました。「次の日へ」を押してください。
+</p>
 {% endif %}
 
 
 <!-- メインボタン -->
 <form method="GET">
 
-    <button class="action-button"
-        type="submit"
-        name="menu"
-        value="food"
-        {% if game_end %}disabled{% endif %}>
-    ごはん
+    <button class="action-button {% if tutorial_step == 1 and tutorial_target == 'main' %}tutorial-highlight{% endif %}"
+            type="submit" name="menu" value="food"
+            {% if game_end or tutorial_step == 2 or tutorial_step == 3 %}disabled{% endif %}>
+        ごはん
     </button>
 
-    <button class="action-button"
-        type="submit"
-        name="menu"
-        value="play"
-        {% if game_end %}disabled{% endif %}>
-    あそぶ
+    <button class="action-button {% if tutorial_step == 2 and tutorial_target == 'main' %}tutorial-highlight{% endif %}"
+            type="submit" name="menu" value="play"
+            {% if game_end or tutorial_step == 1 or tutorial_step == 3 %}disabled{% endif %}>
+        あそぶ
     </button>
 
+    <button class="action-button {% if tutorial_target == 'rest' %}tutorial-highlight{% endif %}"
+            type="submit" name="action" value="rest"
+            {% if game_end or tutorial_step == 1 or tutorial_step == 2 or not afford.rest %}disabled{% endif %}>
+        休む
+    </button>
 
+</form>
+
+
+<!-- ごはん／あそぶメニュー（中身は views.py の FOOD_MENU / PLAY_MENU） -->
+{% if sub_menu_items %}
+<form method="GET">
+
+    {% for it in sub_menu_items %}
+    <div class="action-card">
+
+        <button class="sub-action-button {% if it.highlight %}tutorial-highlight{% endif %}"
+                type="submit" name="menu" value="{{ it.menu }}"
+                {% if not it.ok or game_end %}disabled{% endif %}>
+            {{ it.label }}
+        </button>
+
+        <div class="action-info">
+            <p>{% if in_tutorial %}0{% else %}{{ it.cost }}{% endif %}時間</p>
+        </div>
+
+    </div>
+    {% endfor %}
+
+</form>
+{% endif %}
+
+
+<!-- 難易度メニュー（全ミニゲーム共通） -->
+{% if difficulty_action %}
+<form method="GET">
+
+    <input type="hidden" name="action" value="{{ difficulty_action }}">
+
+    {% for level in difficulty_list %}
+    <div class="action-card">
+
+        {% if level.unlocked %}
+            <button class="sub-action-button {% if in_tutorial and level.key == 'easy' %}tutorial-highlight{% endif %}"
+                    type="submit" name="difficulty" value="{{ level.key }}"
+                    {% if not difficulty_affordable or game_end or in_tutorial and level.key != 'easy' %}disabled{% endif %}>
+                {{ level.label }}
+            </button>
+        {% else %}
+            <button class="sub-action-button" type="button" disabled>
+                🔒 {{ level.label }}
+            </button>
+        {% endif %}
+
+        <div class="action-info">
+            <p>{% if in_tutorial %}0{% else %}{{ difficulty_cost }}{% endif %}時間</p>
+        </div>
+
+    </div>
+    {% endfor %}
+
+</form>
+{% endif %}
+
+
+<br>
+
+<!-- 次の日へ -->
+<form method="GET">
     <button class="action-button"
-        type="submit"
-        name="action"
-        value="rest"
-        {% if remaining_time < 2 or game_end %}disabled{% endif %}>
-    休む
-</button>
-
-
-    </form>
-
-
-<!-- ごはんメニュー -->
-{% if menu == 'food' %}
-
-<form method="GET">
-
-    <input type="hidden" name="menu" value="food">
-
-    <div class="action-card">
-
-        <button class="sub-action-button"
-        type="submit"
-        name="menu"
-        value="timing_difficulty"
-        {% if remaining_time < 2 or game_end %}disabled{% endif %}>
-    火加減チャレンジ
-</button>
-
-        <div class="action-info">
-            <p>4時間</p>
-        </div>
-
-    </div>
-
-    <div class="action-card">
-
-        <button class="sub-action-button"
-                type="submit"
-                name="menu"
-                value="count_difficulty"
-                {% if remaining_time < 1 or game_end %}disabled{% endif %}>
-            食材かぞえ
-        </button>
-
-        <div class="action-info">
-            <p>2時間</p>
-        </div>
-
-    </div>
-
-    <div class="action-card">
-
-        <button class="sub-action-button"
-                type="submit"
-                name="menu"
-                value="food_difficulty"
-                {% if remaining_time < 1 or game_end %}disabled{% endif %}>
-            好きなごはん選び
-        </button>
-
-        <div class="action-info">
-            <p>2時間</p>
-        </div>
-
-    </div>
-
-</form>
-
-{% endif %}
-
-
-<!-- あそぶメニュー -->
-{% if menu == 'play' %}
-
-<form method="GET">
-
-    <input type="hidden" name="menu" value="play">
-
-    <div class="action-card">
-
-        <button class="sub-action-button"
-                type="submit"
-                name="menu"
-                value="dance_difficulty"
-                {% if remaining_time < 1 or game_end %}disabled{% endif %}>
-            ダンスまね
-        </button>
-
-        <div class="action-info">
-            <p>2時間</p>
-        </div>
-
-    </div>
-
-    <div class="action-card">
-
-        <button class="sub-action-button"
-                type="submit"
-                name="menu"
-                value="ball_difficulty"
-                {% if remaining_time < 2 or game_end %}disabled{% endif %}>
-            ボールキャッチ
-        </button>
-
-        <div class="action-info">
-            <p>4時間</p>
-        </div>
-
-    </div>
-
-    <div class="action-card">
-
-        <button class="sub-action-button"
-                type="submit"
-                name="menu"
-                value="dodge_difficulty"
-                {% if remaining_time < 3 or game_end %}disabled{% endif %}>
-            障害物よけ
-        </button>
-
-        <div class="action-info">
-            <p>6時間</p>
-        </div>
-
-    </div>
-
-</form>
-
-{% endif %}
-
-
-
-<!-- ダンスまね：難易度選択メニュー -->
-{% if menu == 'dance_difficulty' %}
-
-<form method="GET">
-
-    <input type="hidden"
-           name="action"
-           value="dance_minigame">
-
-    {% for level in difficulty_list %}
-
-    <div class="action-card">
-
-        {% if level.unlocked %}
-
-            <button class="sub-action-button"
-                    type="submit"
-                    name="difficulty"
-                    value="{{ level.key }}"
-                    {% if remaining_time < 1 or game_end %}disabled{% endif %}>
-                {{ level.label }}
-            </button>
-
-        {% else %}
-
-            <button class="sub-action-button" type="button" disabled>
-                {{ level.label }}
-            </button>
-
-        {% endif %}
-
-        <div class="action-info">
-            <p>2時間</p>
-        </div>
-
-    </div>
-
-    {% endfor %}
-
-</form>
-
-{% endif %}
-
-
-
-<!-- ボールキャッチ：難易度選択メニュー -->
-{% if menu == 'ball_difficulty' %}
-
-<form method="GET">
-
-    <input type="hidden"
-           name="action"
-           value="ball">
-
-    {% for level in difficulty_list %}
-
-    <div class="action-card">
-
-        {% if level.unlocked %}
-
-            <button class="sub-action-button"
-                    type="submit"
-                    name="difficulty"
-                    value="{{ level.key }}"
-                    {% if remaining_time < 2 or game_end %}disabled{% endif %}>
-                {{ level.label }}
-            </button>
-
-        {% else %}
-
-            <button class="sub-action-button" type="button" disabled>
-                {{ level.label }}
-            </button>
-
-        {% endif %}
-
-        <div class="action-info">
-            <p>2時間</p>
-        </div>
-
-    </div>
-
-    {% endfor %}
-
-</form>
-
-{% endif %}
-
-
-<!-- 障害物よけ：難易度選択メニュー -->
-{% if menu == 'dodge_difficulty' %}
-
-<form method="GET">
-
-    <input type="hidden"
-           name="action"
-           value="dodge_minigame">
-
-    {% for level in difficulty_list %}
-
-    <div class="action-card">
-
-        {% if level.unlocked %}
-
-            <button class="sub-action-button"
-                    type="submit"
-                    name="difficulty"
-                    value="{{ level.key }}"
-                    {% if remaining_time < 3 or game_end %}disabled{% endif %}>
-                {{ level.label }}
-            </button>
-
-        {% else %}
-
-            <button class="sub-action-button" type="button" disabled>
-                {{ level.label }}
-            </button>
-
-        {% endif %}
-
-        <div class="action-info">
-            <p>6時間</p>
-        </div>
-
-    </div>
-
-    {% endfor %}
-
-</form>
-
-{% endif %}
-
-
-
-<!-- 好きなごはん選び：難易度選択メニュー -->
-{% if menu == 'food_difficulty' %}
-
-<form method="GET">
-
-    <input type="hidden"
-           name="action"
-           value="food_minigame">
-
-    {% for level in difficulty_list %}
-
-    <div class="action-card">
-
-        {% if level.unlocked %}
-
-            <button class="sub-action-button"
-                    type="submit"
-                    name="difficulty"
-                    value="{{ level.key }}"
-                    {% if remaining_time < 1 or game_end %}disabled{% endif %}>
-                {{ level.label }}
-            </button>
-
-        {% else %}
-
-            <button class="sub-action-button" type="button" disabled>
-                {{ level.label }}
-            </button>
-
-        {% endif %}
-
-        <div class="action-info">
-            <p>2時間</p>
-        </div>
-
-    </div>
-
-    {% endfor %}
-
-</form>
-
-{% endif %}
-
-<!-- 料理タイミング：難易度選択 -->
-{% if menu == 'timing_difficulty' %}
-
-<form method="GET">
-
-    <input type="hidden"
-           name="action"
-           value="timing_minigame">
-
-    {% for level in difficulty_list %}
-
-    <div class="action-card">
-
-        {% if level.unlocked %}
-            <button class="sub-action-button"
-                    type="submit"
-                    name="difficulty"
-                    value="{{ level.key }}"
-                    {% if remaining_time < 1 or game_end %}disabled{% endif %}>
-                {{ level.label }}
-            </button>
-        {% else %}
-            <button class="sub-action-button" type="button" disabled>
-                {{ level.label }}
-            </button>
-        {% endif %}
-
-        <div class="action-info">
-            <p>2時間</p>
-        </div>
-
-    </div>
-
-    {% endfor %}
-
-</form>
-
-{% endif %}
-
-
-<!-- 食材かぞえ：難易度選択 -->
-{% if menu == 'count_difficulty' %}
-
-<form method="GET">
-
-    <input type="hidden"
-           name="action"
-           value="count_minigame">
-
-    {% for level in difficulty_list %}
-
-    <div class="action-card">
-
-        {% if level.unlocked %}
-            <button class="sub-action-button"
-                    type="submit"
-                    name="difficulty"
-                    value="{{ level.key }}"
-                    {% if remaining_time < 1 or game_end %}disabled{% endif %}>
-                {{ level.label }}
-            </button>
-        {% else %}
-            <button class="sub-action-button" type="button" disabled>
-                {{ level.label }}
-            </button>
-        {% endif %}
-
-        <div class="action-info">
-            <p>2時間</p>
-        </div>
-
-    </div>
-
-    {% endfor %}
-
-</form>
-
-{% endif %}
-
-
-
-    <br>
-
-    <!-- 次の日へ -->
-<form method="GET">
-
-    <button class="action-button"
-            type="submit"
-            name="action"
-            value="next_day"
-            {% if game_end %}disabled{% endif %}>
+            type="submit" name="action" value="next_day"
+            {% if game_end or in_tutorial %}disabled{% endif %}>
         次の日へ
     </button>
-
 </form>
 
 <br>
+
 <!-- 持ち物一覧 -->
 <form method="GET">
-
-    <button class="action-button"
-            type="submit"
-            name="menu"
-            value="items">
-        持ち物一覧
+    <button class="action-button" type="submit" name="menu" value="items">
+        持ち物一覧{% if has_new_items %}<span class="new-badge">NEW</span>{% endif %}
     </button>
-
 </form>
 
-
-
- {% if menu == 'items' %}
+{% if menu == 'items' %}
 
 <h2>持ち物一覧</h2>
-    {% if menu == 'items' %}
 
 <p>
     所持数：{{ owned_count }} / {{ total_count }}
     （{{ collection_rate }}%）
 </p>
 
-{% endif %}
+{% if items_display %}
 
+<div style="display:flex; flex-wrap:wrap; justify-content:center; gap:20px;">
 
-{% if items %}
+    {% for it in items_display %}
+    <div style="width:120px; text-align:center; border:1px solid #ccc; border-radius:10px; padding:10px;">
 
-<div style="
-    display:flex;
-    flex-wrap:wrap;
-    justify-content:center;
-    gap:20px;
-">
+        <img src="{% static 'images/'|add:it.id|add:'.png' %}" width="80">
 
-    {% for item in items %}
+        <p>
+            {{ it.name }}
+            {% if it.is_new %}<span class="new-badge">NEW</span>{% endif %}
+        </p>
 
-    <div style="
-        width:120px;
-        text-align:center;
-        border:1px solid #ccc;
-        border-radius:10px;
-        padding:10px;
-    ">
+        {% if it.id not in placed_items %}
+        <form method="GET">
+            <input type="hidden" name="menu" value="items">
+            <input type="hidden" name="action" value="place">
+            <input type="hidden" name="item" value="{{ it.id }}">
+            <button type="submit">配置</button>
+        </form>
+        {% else %}
+        <form method="GET" style="display:inline;">
+            <input type="hidden" name="menu" value="items">
+            <input type="hidden" name="action" value="remove">
+            <input type="hidden" name="item" value="{{ it.id }}">
+            <button type="submit">しまう</button>
+        </form>
+        {% endif %}
 
-        <img
-            src="{% static 'images/'|add:item|add:'.png' %}"
-            width="80"
-        >
-
-        <p>{{ item }}</p>
-
-       {% if item not in placed_items %}
-
-    <form method="GET">
-
-        <input type="hidden"
-               name="menu"
-               value="items">
-
-        <input type="hidden"
-               name="action"
-               value="place">
-
-        <input type="hidden"
-               name="item"
-               value="{{ item }}">
-
-        <button type="submit">
-            配置
-        </button>
-
-    </form>
-
-{% else %}
-
-    <form method="GET" style="display:inline;">
-
-        <input type="hidden"
-               name="menu"
-               value="items">
-
-        <input type="hidden"
-               name="action"
-               value="remove">
-
-        <input type="hidden"
-               name="item"
-               value="{{ item }}">
-
-        <button type="submit">
-            しまう
-        </button>
-
-    </form>
-
-{% endif %}
     </div>
-
     {% endfor %}
 
 </div>
@@ -1130,7 +835,6 @@ pointer-events: none;
 {% endif %}
 
 {% endif %}
-
 
 
 <!-- リセット -->
@@ -1145,6 +849,90 @@ pointer-events: none;
 
 </form>
 
+{{ hint_list|json_script:"hint-data" }}
+{{ initial_speech|json_script:"initial-speech" }}
+
+<script>
+
+// 部屋を画面幅に合わせて縮小する
+function fitRoom() {
+    const wrap = document.getElementById("room-wrap");
+    const room = document.getElementById("room");
+    if (!wrap || !room) return;
+    const s = Math.min(1, (document.documentElement.clientWidth - 16) / 600);
+    room.style.transformOrigin = "top left";
+    room.style.transform = "scale(" + s + ")";
+    wrap.style.width = (600 * s) + "px";
+    wrap.style.height = (400 * s) + "px";
+    wrap.style.margin = "0 auto";
+}
+fitRoom();
+window.addEventListener("resize", fitRoom);
+
+// キャラクターのセリフを表示する
+const hintList = JSON.parse(document.getElementById("hint-data").textContent);
+const initialSpeech = JSON.parse(document.getElementById("initial-speech").textContent);
+
+function say(text) {
+    const el = document.getElementById("char-speech");
+    if (!el) return;
+    el.style.display = "none";
+    el.textContent = text;
+    void el.offsetWidth;            // アニメーションを最初からやり直す
+    el.style.display = "block";
+    setTimeout(function () { el.style.display = "none"; }, 2600);
+}
+
+// キャラクターをタップしたとき
+function tapCharacter() {
+    if (!hintList || hintList.length === 0) return;
+    say(hintList[Math.floor(Math.random() * hintList.length)]);
+}
+
+// 行動後に状態が良くなったときの反応
+if (initialSpeech) {
+    setTimeout(function () { say(initialSpeech); }, 500);
+}
+
+{% if tutorial_step != 0 %}
+// 一定時間ごとに話しかける
+setInterval(function () {
+    say(hintList[Math.floor(Math.random() * hintList.length)]);
+}, 15000);
+{% endif %}
+
+{% if tutorial_step == 0 and not tutorial_choice_required %}
+// ゲームイントロ
+const slides = [
+    "この子と一緒に過ごしてみよう！",
+    "ごはんをあげたり、一緒に遊んだり、休ませたりしながら育てていきます。",
+    "行動すると時間が進みます。1日の時間を使い切ったら「次の日へ」を押そう。",
+    "育てていくと、キャラクターの見た目が変化したり、部屋の飾りをゲットして模様替えができたりするよ。",
+    "この子の様子をよく見ながら、何をしてあげるか考えてみてね。\nどんなふうに育っていくかは、あなた次第！"
+];
+let slideIndex = 0;
+const introText = document.getElementById("intro-text");
+const introDots = document.getElementById("intro-dots");
+const introNext = document.getElementById("intro-next");
+
+function showSlide() {
+    introText.innerText = slides[slideIndex];
+    introDots.textContent = slides.map(function (_, i) { return i === slideIndex ? "●" : "○"; }).join(" ");
+    introNext.textContent = (slideIndex === slides.length - 1) ? "はじめる" : "つぎへ";
+}
+
+introNext.onclick = function () {
+    if (slideIndex < slides.length - 1) {
+        slideIndex++;
+        showSlide();
+    } else {
+        window.location.href = "?action=intro_done";   // チュートリアルへ
+    }
+};
+showSlide();
+{% endif %}
+
+</script>
 
 </body>
 </html>
