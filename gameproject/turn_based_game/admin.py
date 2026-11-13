@@ -7,15 +7,15 @@ class ActionLogAdmin(admin.ModelAdmin):
 
     # 一覧画面に表示する項目
     list_display = (
-        'user',
-        'action',
-        'turn',
-        'result',
-        'energy',
-        'fullness',
-        'satisfaction',
-        'growth',
-        'timestamp',
+        'user', 'game_round', 'action', 'turn', 'result',  # game_round を追加
+        'energy', 'fullness', 'satisfaction', 'growth', 'timestamp',
+    )
+
+    list_filter = ('game_round', 'action', 'user')  # game_round を追加
+
+    readonly_fields = (
+        'user', 'game_round', 'action', 'turn', 'energy',  # game_round を追加
+        'fullness', 'satisfaction', 'growth', 'result', 'timestamp',
     )
 
     # 検索
@@ -55,6 +55,7 @@ class SaveDataAdmin(admin.ModelAdmin):
     # ========================================
     list_display = (
         'user',
+        'game_round',
         'growth',
         'energy',
         'satisfaction',
@@ -122,6 +123,7 @@ class SaveDataAdmin(admin.ModelAdmin):
             {
                 'fields': (
                     'play_count',
+                    'game_round',
                     'play_session_count',
                     'total_play_seconds',
                     'play_started_at',

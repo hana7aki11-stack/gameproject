@@ -657,6 +657,15 @@ pointer-events: none;
         別の性格を目指してみましょう！
     </p>
 
+        <form method="GET" style="margin-top:16px;">
+        <button class="action-button" type="submit" name="action" value="new_round">
+            新しい育成を始める
+        </button>
+        <p style="font-size:13px; color:#666; margin:4px 0 0;">
+            集めた家具・壁紙は引き継がれます。
+        </p>
+    </form>
+
 </div>
 
 {% endif %}
@@ -840,11 +849,9 @@ pointer-events: none;
 
 <!-- リセット -->
 <form method="GET"
-      onsubmit="return confirm('ゲームをリセットすると、現在までに獲得した家具・アイテムもすべて消えます。本当にリセットしますか？');">
+      onsubmit="return confirm('ゲームをリセットします。育成の進み具合と、集めた家具・壁紙もすべて消えます。よろしいですか？');">
 
-    <button type="submit"
-            name="action"
-            value="reset">
+    <button type="submit" name="action" value="reset">
         ゲームリセット
     </button>
 

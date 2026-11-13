@@ -46,6 +46,10 @@ class SaveData(models.Model):
     # =========================
     # ゲーム進行状況
     # =========================
+
+    # 何回目の育成か（1から始まる。新しい育成を始めるたびに+1）
+    game_round = models.IntegerField(default=1, verbose_name='育成回数')
+
     turn = models.IntegerField(
         default=1,
         verbose_name='ターン'
@@ -291,6 +295,10 @@ class ActionLog(models.Model):
         on_delete=models.CASCADE,
         verbose_name='ユーザー'
     )
+
+
+    # この行動が何回目の育成のものか
+    game_round = models.IntegerField(default=1, verbose_name='育成回数')
 
     # 何をしたか
     action = models.CharField(

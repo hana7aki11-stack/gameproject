@@ -151,6 +151,9 @@ TUTORIAL_END_TEXT = "チュートリアル完了！\nここからは、この子
 FOOD_RESULT_ACTIONS = ['food_result', 'timing_result', 'count_result']
 PLAY_RESULT_ACTIONS = ['ball_game', 'dodge_result', 'dance_result']
 
+# アイテムの抽選対象（ごはん・あそぶ・休むのあと）。「次の日へ」は含めない
+ITEM_DROP_ACTIONS = ['rest'] + PLAY_RESULT_ACTIONS + FOOD_RESULT_ACTIONS
+
 # ミニゲーム結果によるパラメータ変化（残りライフ0〜3の順）
 # (満足度, 元気, 満腹度, 成長, メッセージ)  ← バランス調整はここの数字だけでOK
 RESULT_TABLES = {
@@ -315,39 +318,15 @@ def home(request):
 
     if action == "reset":
 
-        # ------------------------------------------
-        # 現在持っている家具・アイテムを一旦保存
-        # ------------------------------------------
-        saved_items = list(request.session.get('items', []))
-        saved_placed_items = list(request.session.get('placed_items', []))
-        saved_room_wallpaper = request.session.get(
-            'room_wallpaper',
-            'room-default'
-        )
-
-        # ------------------------------------------
-        # セッションを新しい育成の初期値にする
-        # ------------------------------------------
+        # 育成の進み具合も、家具・壁紙・配置もすべて初期化する
         for key, val in make_defaults().items():
             request.session[key] = val
 
-        # ------------------------------------------
-        # 家具・アイテムは新しい育成にも引き継ぐ
-        # ------------------------------------------
-        request.session['items'] = saved_items
-        request.session['placed_items'] = saved_placed_items
-        request.session['room_wallpaper'] = saved_room_wallpaper
-
-        # チュートリアル関連
         request.session['tutorial_choice_required'] = False
         request.session['pending_result'] = ''
         request.session['session_start'] = timezone.now().isoformat()
         request.session['auto_loaded'] = True
 
-        # ------------------------------------------
-        # ログイン中の場合
-        # SaveDataも新しい育成の状態にする
-        # ------------------------------------------
         if save_data is not None:
             save_data.satisfaction = 50
             save_data.energy = 50
@@ -360,20 +339,74 @@ def home(request):
             save_data.snack_count = 0
             save_data.character_state = 'normal'
 
-            # --------------------------------------
-            # 家具・アイテムは消さずに引き継ぐ
-            # --------------------------------------
-            save_data.items = saved_items
-            save_data.placed_items = saved_placed_items
-            save_data.room_wallpaper = saved_room_wallpaper
-
+            save_data.items = []
+            save_data.placed_items = []
+            save_data.room_wallpaper = 'room-default'
             save_data.new_items = []
+
             save_data.notified_stage = 0
             save_data.tutorial_step = 0
             save_data.has_started_game = True
+            save_data.game_round += 1       # 新しい育成を始めたので、育成回数を進める
             save_data.play_session_count += 1
             save_data.play_started_at = timezone.now()
+            save_data.save()
 
+        return redirect('/')
+
+    # -------------------------
+    # 新しい育成を始める（育成完了後のみ。家具・壁紙は引き継ぐ）
+    # -------------------------
+
+    if action == "new_round":
+
+        # 育成を完了していない状態では実行できない（URL直打ち対策）
+        if request.session.get('growth', 0) < 100:
+            return redirect('/')
+
+        # 家具・壁紙・配置を退避しておく
+        saved_items = list(request.session.get('items', []))
+        saved_placed = list(request.session.get('placed_items', []))
+        saved_wall = request.session.get('room_wallpaper', 'room-default')
+
+        # 育成の進み具合を初期化
+        for key, val in make_defaults().items():
+            request.session[key] = val
+
+        # 家具・壁紙・配置は引き継ぐ
+        request.session['items'] = saved_items
+        request.session['placed_items'] = saved_placed
+        request.session['room_wallpaper'] = saved_wall
+
+        # 2回目以降の育成でもイントロ・チュートリアルを見せる
+        request.session['tutorial_choice_required'] = False
+        request.session['pending_result'] = ''
+        request.session['session_start'] = timezone.now().isoformat()
+        request.session['auto_loaded'] = True
+
+        if save_data is not None:
+            save_data.satisfaction = 50
+            save_data.energy = 50
+            save_data.growth = 0
+            save_data.fullness = 50
+            save_data.turn = 1
+            save_data.remaining_time = 12
+            save_data.play_count = 0
+            save_data.healthy_food_count = 0
+            save_data.snack_count = 0
+            save_data.character_state = 'normal'
+
+            save_data.items = saved_items
+            save_data.placed_items = saved_placed
+            save_data.room_wallpaper = saved_wall
+            save_data.new_items = []
+
+            save_data.notified_stage = 0
+            save_data.tutorial_step = 0
+            save_data.has_started_game = True
+            save_data.game_round += 1          # 育成回数を進める
+            save_data.play_session_count += 1
+            save_data.play_started_at = timezone.now()
             save_data.save()
 
         return redirect('/')
@@ -786,72 +819,47 @@ def home(request):
 
         # ==========================================
         # Happyならアイテム獲得チャンス（40%）
+        # ごはん・あそぶ・休むの行動の直後だけ（飾る・次の日へでは出ない）
         # ==========================================
-    if character_state == "happy":
+        if character_state == "happy" and action in ITEM_DROP_ACTIONS:
 
-        # まだ持っていないアイテムだけを対象にする
-        not_owned = [i for i in ALL_ITEMS if i not in items]
+            # まだ持っていないアイテムだけを対象にする
+            not_owned = [i for i in ALL_ITEMS if i not in items]
 
-        # アイテム獲得そのものは40%
-        if not_owned and random.randint(1, 100) <= 40:
+            # アイテム獲得そのものは40%
+            if not_owned and random.randint(1, 100) <= 40:
 
-            # ------------------------------------------
-            # 未獲得アイテムが存在するシリーズだけを対象にする
-            # ------------------------------------------
-            available_types = []
-
-            for item_type in ITEM_TYPE_WEIGHTS:
-                if any(
-                        ITEM_TYPES.get(item) == item_type
-                        for item in not_owned
-                ):
-                    available_types.append(item_type)
-
-            if available_types:
-                # ------------------------------------------
-                # シリーズを確率で抽選
-                #
-                # kawaii : 40%
-                # sky    : 30%
-                # star   : 20%
-                # wallpaper : 10%
-                # ------------------------------------------
-                type_weights = [
-                    ITEM_TYPE_WEIGHTS[item_type]
-                    for item_type in available_types
+                # 未獲得アイテムが存在するシリーズだけを対象にする
+                available_types = [
+                    item_type for item_type in ITEM_TYPE_WEIGHTS
+                    if any(ITEM_TYPES.get(i) == item_type for i in not_owned)
                 ]
 
-                selected_type = random.choices(
-                    available_types,
-                    weights=type_weights,
-                    k=1
-                )[0]
+                if available_types:
+                    # シリーズを確率で抽選
+                    type_weights = [
+                        ITEM_TYPE_WEIGHTS[t] for t in available_types
+                    ]
+                    selected_type = random.choices(
+                        available_types, weights=type_weights, k=1
+                    )[0]
 
-                # ------------------------------------------
-                # 選ばれたシリーズの未獲得アイテムだけに絞る
-                # ------------------------------------------
-                type_items = [
-                    item
-                    for item in not_owned
-                    if ITEM_TYPES.get(item) == selected_type
-                ]
+                    # 選ばれたシリーズの未獲得アイテムから1個選ぶ
+                    type_items = [
+                        i for i in not_owned
+                        if ITEM_TYPES.get(i) == selected_type
+                    ]
+                    new_item = random.choice(type_items)
 
-                # ------------------------------------------
-                # そのシリーズの中から1個選ぶ
-                # ------------------------------------------
-                new_item = random.choice(type_items)
+                    # アイテムを追加
+                    items.append(new_item)
+                    request.session['items'] = items
+                    new_items.append(new_item)  # NEW表示用
 
-                # アイテムを追加
-                items.append(new_item)
-                request.session['items'] = items
-
-                # NEW表示用
-                new_items.append(new_item)
-
-                # 獲得表示
-                item_get = True
-                get_item_image = f'images/{new_item}.png'
-                get_item_name = ITEM_NAMES.get(new_item, new_item)
+                    # 獲得ポップアップ用
+                    item_get = True
+                    get_item_image = f'images/{new_item}.png'
+                    get_item_name = ITEM_NAMES.get(new_item, new_item)
 
     # -------------------------
     # 値の上限・下限
@@ -1134,6 +1142,7 @@ def home(request):
                 user=request.user, action=LOG_NAMES[action], turn=turn,
                 energy=energy, fullness=fullness, satisfaction=satisfaction,
                 growth=growth, result=result_str,
+                game_round=save_data.game_round,  # ← 追加
             )
 
     status = {
