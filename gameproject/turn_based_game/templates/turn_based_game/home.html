@@ -67,13 +67,12 @@
 
     /* パラメータ */
     .status-panel {
-        width: 92%;
-        max-width: 450px;
-        box-sizing: border-box;
-        margin: 0 auto 12px;
-        padding: 8px;
-        gap: 6px;
-    }
+    width: min(600px, calc(100vw - 16px));
+    box-sizing: border-box;
+    margin: 0 auto 12px;
+    padding: 8px;
+    gap: 6px;
+}
 
     .status-item {
         display: flex;
@@ -327,9 +326,10 @@
 }
 
        .status-panel {
-    width: 450px;
+    width: min(600px, calc(100vw - 16px));
     margin: 0 auto 20px;
     padding: 12px;
+    box-sizing: border-box;
 
     background: #ffffffcc;
     border-radius: 15px;
