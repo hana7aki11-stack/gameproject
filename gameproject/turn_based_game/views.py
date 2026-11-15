@@ -102,11 +102,11 @@ ITEM_TYPE_WEIGHTS = {
 
 # キャラクターのセリフ（理由は言わず、ヒントだけ出す）
 HINT_TEXTS = {
-    'hungry': ["なんだかそわそわするな……", "……ぐぅ〜"],
-    'tired':  ["なんだか元気が出ないな……", "ふあぁ……"],
-    'full':   ["ふぅ……ちょっと動きたくないなあ", "うぅ……"],
-    'bored':  ["なんだかつまらないな〜……", "ねえねえ、なにかしようよ"],
-    'happy':  ["ふふっ♪", "えへへ、たのしいな！"],
+    'hungry': ["なんだかそわそわするな……"],
+    'tired':  ["なんだか元気が出ないな……"],
+    'full':   ["うぅ……"],
+    'bored':  ["ねえねえ、なにかしようよ"],
+    'happy':  ["ふふっ♪"],
     'normal': ["どうしたの？", "なあに？"],
 }
 
@@ -826,8 +826,8 @@ def home(request):
             # まだ持っていないアイテムだけを対象にする
             not_owned = [i for i in ALL_ITEMS if i not in items]
 
-            # アイテム獲得そのものは40%
-            if not_owned and random.randint(1, 100) <= 40:
+            # アイテム獲得そのものは30%
+            if not_owned and random.randint(1, 100) <= 30:
 
                 # 未獲得アイテムが存在するシリーズだけを対象にする
                 available_types = [
@@ -1294,10 +1294,10 @@ def food_game(request):
         selected_difficulty = 'easy'
 
     FOOD_DIFFICULTY_SETTINGS = {
-        'easy':   {'flow_speed': 1.0, 'spawn_interval': 1200, 'time_limit': 20, 'score_multiplier': 1},
-        'normal': {'flow_speed': 1.4, 'spawn_interval': 900,  'time_limit': 18, 'score_multiplier': 1.5},
-        'hard':   {'flow_speed': 1.8, 'spawn_interval': 650,  'time_limit': 15, 'score_multiplier': 2},
-        'oni':    {'flow_speed': 2.4, 'spawn_interval': 450,  'time_limit': 12, 'score_multiplier': 3},
+        'easy': {'flow_speed': 1.0, 'spawn_interval': 1200, 'time_limit': 20, 'score_multiplier': 1},
+        'normal': {'flow_speed': 1.4, 'spawn_interval': 900, 'time_limit': 18, 'score_multiplier': 1.5},
+        'hard': {'flow_speed': 1.8, 'spawn_interval': 700, 'time_limit': 15, 'score_multiplier': 2},
+        'oni': {'flow_speed': 2.2, 'spawn_interval': 600, 'time_limit': 12, 'score_multiplier': 3},
     }
     current_settings = FOOD_DIFFICULTY_SETTINGS[selected_difficulty]
 
@@ -1402,10 +1402,10 @@ def dance_game(request):
         selected_difficulty = 'easy'
 
     DANCE_DIFFICULTY_SETTINGS = {
-        'easy':   {'sequence_length': 3,  'show_seconds': 4},
-        'normal': {'sequence_length': 5,  'show_seconds': 4},
-        'hard':   {'sequence_length': 7,  'show_seconds': 5},
-        'oni':    {'sequence_length': 10, 'show_seconds': 5},
+        'easy': {'sequence_length': 3, 'show_seconds': 4},  # 1問あたり 約1.3秒（変更なし）
+        'normal': {'sequence_length': 4, 'show_seconds': 5},  # 1問あたり 約1.25秒
+        'hard': {'sequence_length': 5, 'show_seconds': 6},  # 1問あたり 約1.2秒
+        'oni': {'sequence_length': 7, 'show_seconds': 8},  # 1問あたり 約1.1秒
     }
     current_settings = DANCE_DIFFICULTY_SETTINGS[selected_difficulty]
 

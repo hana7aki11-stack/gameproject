@@ -659,20 +659,21 @@
 
 <!-- キャラ＆メッセージ -->
 <div style="position: absolute; left: 50%; bottom: 80px; transform: translateX(-50%);
-            display: flex; flex-direction: column; align-items: center;">
+            display: flex; flex-direction: column; align-items: center;
+            z-index: 20;">
 
-  {% if event_message %}
-  <div class="event-message">{{ event_message }}</div>
+    {% if event_message %}
+  <div class="event-message" style="z-index: 30;">{{ event_message }}</div>
   {% endif %}
 
   {# キャラクターのセリフ用（JSで表示） #}
-  <div id="char-speech" class="event-message" style="display:none;"></div>
+  <div id="char-speech" class="event-message" style="display:none; z-index: 30;"></div>
 
   <img id="room-character"
        src="{% static character_image %}"
        width="220"
        onclick="tapCharacter()"
-       style="display:block; cursor:pointer; animation: {{ character_animation }};">
+       style="display:block; cursor:pointer; position:relative; z-index:20; animation: {{ character_animation }};">
 
 </div>
 

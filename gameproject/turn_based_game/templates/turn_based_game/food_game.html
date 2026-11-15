@@ -331,11 +331,14 @@
         timeLeft;
 
 
+        // 速い難易度ほど食材を少し小さくして、重なりにくくする
+    const SIZE_RATE = { easy: 0.30, normal: 0.28, hard: 0.26, oni: 0.24 };
+
     const FOOD_SIZE =
         Math.min(
             200,
             Math.round(
-                area.clientWidth * 0.3
+                area.clientWidth * (SIZE_RATE[difficulty] || 0.28)
             )
         );
 
@@ -648,11 +651,11 @@
         }
 
 
+                // 指が触れた瞬間に反応する（速く動く食材でも取りこぼしにくい）
         img.addEventListener(
-            "click",
+            "pointerdown",
             handleFoodHit
         );
-    }
 
 
     /* =========================================================
