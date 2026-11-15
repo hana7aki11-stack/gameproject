@@ -871,7 +871,7 @@
                 currentY + "px";
 
 
-            const elX =
+                        const elX =
                 parseFloat(
                     el.style.left
                 );
@@ -881,19 +881,29 @@
                 10 -
                 player.offsetHeight;
 
+            // 判定を見た目より小さくする（余白を除く）
+            const OBJ_SIZE = 40;
+            const OBJ_MARGIN = 8;     // 絵文字の周りの余白
+            const PLAYER_MARGIN_X = player.offsetWidth * 0.2;   // 左右の透明部分
+            const PLAYER_MARGIN_Y = player.offsetHeight * 0.15; // 上下の透明部分
+
+            const objLeft = elX + OBJ_MARGIN;
+            const objRight = elX + OBJ_SIZE - OBJ_MARGIN;
+            const objTop = currentY + OBJ_MARGIN;
+            const objBottom = currentY + OBJ_SIZE - OBJ_MARGIN;
+
+            const pLeft = playerX + PLAYER_MARGIN_X;
+            const pRight = playerX + player.offsetWidth - PLAYER_MARGIN_X;
+            const pTop = playerBottom + PLAYER_MARGIN_Y;
+            const pBottom = playerBottom + player.offsetHeight - PLAYER_MARGIN_Y;
+
             const hitY =
-                currentY + 40 >
-                    playerBottom &&
-                currentY <
-                    playerBottom +
-                    player.offsetHeight;
+                objBottom > pTop &&
+                objTop < pBottom;
 
             const hitX =
-                elX + 40 >
-                    playerX &&
-                elX <
-                    playerX +
-                    player.offsetWidth;
+                objRight > pLeft &&
+                objLeft < pRight;
 
 
             if (hitY && hitX) {
