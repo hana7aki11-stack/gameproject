@@ -186,3 +186,30 @@ with connection.cursor() as cursor:
 print("===== END DATA CHECK =====", flush=True)
 
 
+# ==========================================
+# total_play_seconds の既存データ確認
+# ==========================================
+
+print("\n===== TOTAL PLAY SECONDS CHECK =====", flush=True)
+
+with connection.cursor() as cursor:
+    cursor.execute("""
+        SELECT
+            COUNT(*) AS total_rows,
+            COUNT(*) FILTER (
+                WHERE total_play_seconds IS NOT NULL
+                  AND total_play_seconds <> 0
+            ) AS nonzero_rows,
+            COALESCE(MAX(total_play_seconds), 0) AS max_seconds
+        FROM turn_based_game_savedata
+    """)
+
+    total_rows, nonzero_rows, max_seconds = cursor.fetchone()
+
+    print(f"TOTAL SAVEDATA ROWS: {total_rows}", flush=True)
+    print(f"NONZERO PLAY SECONDS ROWS: {nonzero_rows}", flush=True)
+    print(f"MAX PLAY SECONDS: {max_seconds}", flush=True)
+
+print("===== END TOTAL PLAY SECONDS CHECK =====", flush=True)
+
+
