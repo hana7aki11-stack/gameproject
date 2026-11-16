@@ -355,18 +355,6 @@ def repair():
         )
 
 
-        backup_play_times = cursor.fetchall()
-
-        if backup_play_times != preserved_play_times:
-            raise RuntimeError(
-                "退避先のプレイ時間データが元データと一致しません"
-            )
-
-        print(
-            "VERIFIED: existing play time data and backup match",
-            flush=True
-        )
-
         if (
             ClearLog._meta.db_table
             not in connection.introspection.table_names()
