@@ -133,7 +133,6 @@ class SaveDataAdmin(admin.ModelAdmin):
         'play_count',
         'clear_count',
         'game_over_count',
-        'total_play_seconds',
     )
 
     # ========================================
@@ -194,7 +193,6 @@ class SaveDataAdmin(admin.ModelAdmin):
                     'play_count',
                     'game_round',
                     'play_session_count',
-                    'total_play_seconds',
                     'round_play_seconds',
                     'play_started_at',
                 )
