@@ -133,3 +133,32 @@ with connection.cursor() as cursor:
 
 print("===== END COLUMN DETAILS =====", flush=True)
 
+
+# ==========================================
+# PlaySessionのID自動採番を確認
+# ==========================================
+
+print("\n===== PLAYSESSION ID CHECK =====", flush=True)
+
+with connection.cursor() as cursor:
+    cursor.execute("""
+        SELECT
+            column_name,
+            is_identity,
+            identity_generation,
+            column_default
+        FROM information_schema.columns
+        WHERE table_schema = current_schema()
+          AND table_name = 'turn_based_game_playsession'
+          AND column_name = 'id'
+    """)
+
+    for name, is_identity, generation, default in cursor.fetchall():
+        print(f"COLUMN: {name}", flush=True)
+        print(f"IS IDENTITY: {is_identity}", flush=True)
+        print(f"IDENTITY GENERATION: {generation}", flush=True)
+        print(f"DEFAULT: {default}", flush=True)
+
+print("===== END ID CHECK =====", flush=True)
+
+
