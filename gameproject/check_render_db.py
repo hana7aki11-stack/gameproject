@@ -162,3 +162,27 @@ with connection.cursor() as cursor:
 print("===== END ID CHECK =====", flush=True)
 
 
+# ==========================================
+# PlaySessionの既存データ確認
+# ==========================================
+
+print("\n===== PLAYSESSION DATA CHECK =====", flush=True)
+
+with connection.cursor() as cursor:
+    cursor.execute("""
+        SELECT
+            COUNT(*),
+            COUNT(*) FILTER (WHERE last_seen_at IS NULL),
+            COUNT(*) FILTER (WHERE started_at IS NULL)
+        FROM turn_based_game_playsession
+    """)
+
+    total, missing_last_seen, missing_started = cursor.fetchone()
+
+    print(f"TOTAL ROWS: {total}", flush=True)
+    print(f"NULL LAST_SEEN_AT: {missing_last_seen}", flush=True)
+    print(f"NULL STARTED_AT: {missing_started}", flush=True)
+
+print("===== END DATA CHECK =====", flush=True)
+
+
