@@ -81,13 +81,15 @@ class ClearLogAdmin(admin.ModelAdmin):
         return format_duration(obj.elapsed_seconds)
 
 
+
 @admin.register(ActionLog)
 class ActionLogAdmin(admin.ModelAdmin):
 
     list_display = (
         'user', 'game_round', 'action', 'turn', 'result',
-        'energy', 'fullness', 'satisfaction', 'growth', 'timestamp',
+        'energy', 'fullness', 'satisfaction', 'growth', 'timestamp_text',
     )
+
 
     search_fields = (
         'user__username',
@@ -101,6 +103,13 @@ class ActionLogAdmin(admin.ModelAdmin):
     )
 
     ordering = ('-timestamp',)
+
+
+    @admin.display(description='行動日時', ordering='timestamp')
+    def timestamp_text(self, obj):
+        from django.utils import timezone
+        return timezone.localtime(obj.timestamp).strftime('%Y年%m月%d日 %H:%M:%S')
+
 
     readonly_fields = (
         'user',
