@@ -74,3 +74,33 @@ with connection.cursor() as cursor:
             print(migration, flush=True)
 
 print("========== END DB CHECK ==========\n", flush=True)
+
+
+# ==========================================
+# PlaySessionテーブルの構造を確認
+# ==========================================
+
+print("\n===== PLAYSESSION STRUCTURE CHECK =====", flush=True)
+
+with connection.cursor() as cursor:
+
+    table_name = "turn_based_game_playsession"
+
+    if table_name in connection.introspection.table_names(cursor):
+
+        columns = connection.introspection.get_table_description(
+            cursor,
+            table_name
+        )
+
+        for column in columns:
+            print(
+                f"COLUMN: {column.name}",
+                flush=True
+            )
+
+    else:
+        print("PlaySession table not found", flush=True)
+
+print("===== END PLAYSESSION CHECK =====", flush=True)
+
