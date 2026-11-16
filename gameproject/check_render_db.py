@@ -213,3 +213,34 @@ with connection.cursor() as cursor:
 print("===== END TOTAL PLAY SECONDS CHECK =====", flush=True)
 
 
+# ==========================================
+# PlaySessionのカラム制約を確認
+# ==========================================
+print("\n===== PLAYSESSION COLUMN CHECK =====", flush=True)
+
+with connection.cursor() as cursor:
+    cursor.execute("""
+        SELECT
+            column_name,
+            data_type,
+            is_nullable,
+            column_default
+        FROM information_schema.columns
+        WHERE table_schema = current_schema()
+          AND table_name = 'turn_based_game_playsession'
+        ORDER BY ordinal_position
+    """)
+
+    for name, data_type, nullable, default in cursor.fetchall():
+        print(
+            f"COLUMN: {name} | "
+            f"TYPE: {data_type} | "
+            f"NULLABLE: {nullable} | "
+            f"DEFAULT: {default}",
+            flush=True
+        )
+
+print("===== END PLAYSESSION COLUMN CHECK =====", flush=True)
+
+
+
