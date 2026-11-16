@@ -5,6 +5,6 @@ pip install -r requirements.txt
 
 python manage.py collectstatic --no-input
 
-python manage.py migrate
+python manage.py shell -c "from django.db import connection; c=connection.cursor(); c.execute(\"SELECT tablename FROM pg_tables WHERE schemaname='public' AND tablename IN ('turn_based_game_playsession','turn_based_game_clearlog')\"); print('TABLE CHECK:', c.fetchall())"
 
-python manage.py shell -c "from django.contrib.auth import get_user_model; import os; User=get_user_model(); username=os.environ.get('DJANGO_SUPERUSER_USERNAME'); email=os.environ.get('DJANGO_SUPERUSER_EMAIL'); password=os.environ.get('DJANGO_SUPERUSER_PASSWORD'); User.objects.filter(username=username).exists() or User.objects.create_superuser(username, email, password)"
+exit 1
