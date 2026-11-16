@@ -5,6 +5,4 @@ pip install -r requirements.txt
 
 python manage.py collectstatic --no-input
 
-python manage.py showmigrations turn_based_game
-
-exit 1
+python manage.py migrate
