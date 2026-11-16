@@ -1,0 +1,4 @@
+
+# Pythonの一時ファイルをGitHubにアップロードしない
+__pycache__/
+*.pyc
