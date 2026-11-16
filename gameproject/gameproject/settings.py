@@ -22,12 +22,47 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-yq*i0!lq4&nor*bh&#tf526idbe(4uz1f92%oq#f9)vefm0)h@'
+
+# Renderでは環境変数から秘密鍵を読み込む
+# ローカルでは開発用の秘密鍵を使用する
+SECRET_KEY = os.environ.get(
+    "SECRET_KEY",
+    "django-insecure-local-development-only-change-me-2026"
+)
+
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
 
-ALLOWED_HOSTS = ['*']
+# RenderではFalse、PyCharmではTrue
+DEBUG = os.environ.get("RENDER", "").lower() != "true"
+
+
+ALLOWED_HOSTS = [
+    "gameproject-1jpr.onrender.com",
+    "127.0.0.1",
+    "localhost",
+]
+
+
+# =========================
+# 本番環境のセキュリティ設定
+# =========================
+
+# RenderではHTTPSを使用する
+SECURE_SSL_REDIRECT = not DEBUG
+
+# RenderのHTTPS通信をDjangoに認識させる
+SECURE_PROXY_SSL_HEADER = (
+    "HTTP_X_FORWARDED_PROTO",
+    "https"
+)
+
+# 本番環境ではCookieをHTTPS通信のみに制限
+SESSION_COOKIE_SECURE = not DEBUG
+CSRF_COOKIE_SECURE = not DEBUG
+
+
+
 
 
 # Application definition
@@ -41,17 +76,18 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
 ]
 
+
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'django.middleware.security.SecurityMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware',
 ]
+
 
 ROOT_URLCONF = 'gameproject.urls'
 
