@@ -94,6 +94,22 @@ def repair():
                     "修復済みの履歴がありますが、SaveDataのカラムが不足しています"
                 )
 
+
+            # 古いプレイ時間カラムのデータを保持したまま、
+            # 新規セーブデータ作成時のエラーを防ぐ
+            with connection.cursor() as cursor:
+                cursor.execute("""
+                    ALTER TABLE turn_based_game_savedata
+                    ALTER COLUMN total_play_seconds
+                    SET DEFAULT 0
+                """)
+
+            print(
+                "FIXED: SaveData legacy play time default",
+                flush=True
+            )
+
+
             required_play_columns = {
                 "id", "user_id", "game_round", "started_at",
                 "last_seen_at", "logged_out_at", "page_views",
