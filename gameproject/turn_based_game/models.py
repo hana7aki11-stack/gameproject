@@ -81,14 +81,16 @@ class SaveData(models.Model):
     # =========================
     # プレイ時間・セッション
     # =========================
-    total_play_seconds = models.IntegerField(
-        default=0,
-        verbose_name='総プレイ時間（秒）'
-    )
+
 
     play_session_count = models.IntegerField(
         default=0,
         verbose_name='プレイセッション数'
+    )
+
+    # 今の育成で実際にプレイした時間（秒）。新しい育成を始めるたびに0に戻る
+    round_play_seconds = models.IntegerField(
+        default=0, verbose_name='今の育成のプレイ時間（秒）'
     )
 
     # =========================
@@ -339,3 +341,58 @@ class ActionLog(models.Model):
         verbose_name = '行動ログ'
         verbose_name_plural = '行動ログ'
         ordering = ['-timestamp']  # 新しい順に並べる
+
+
+class PlaySession(models.Model):
+    """1回のプレイ（ログインから離れるまで）を1行で記録する"""
+
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, verbose_name='プレイヤー'
+    )
+    game_round = models.IntegerField(default=1, verbose_name='育成回数')
+
+    started_at = models.DateTimeField(verbose_name='プレイ開始')
+    last_seen_at = models.DateTimeField(verbose_name='プレイ終了（最終操作）')
+    logged_out_at = models.DateTimeField(
+        null=True, blank=True, verbose_name='ログアウト時刻'
+    )
+
+    # 画面を開いた回数（ほぼ操作の回数）
+    page_views = models.IntegerField(default=0, verbose_name='画面操作回数')
+
+    def duration_seconds(self):
+        end = self.logged_out_at or self.last_seen_at
+        return max(0, int((end - self.started_at).total_seconds()))
+
+    def __str__(self):
+        return f"{self.user.username} {self.started_at:%Y-%m-%d %H:%M}"
+
+    class Meta:
+        verbose_name = 'プレイログ'
+        verbose_name_plural = 'プレイログ'
+        ordering = ['-started_at']
+
+
+class ClearLog(models.Model):
+    """育成クリアごとの記録（クリアまでにかかった時間）"""
+
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, verbose_name='プレイヤー'
+    )
+    game_round = models.IntegerField(default=1, verbose_name='育成回数')
+    clear_number = models.IntegerField(default=1, verbose_name='クリア回数')
+    cleared_at = models.DateTimeField(verbose_name='クリア日時')
+
+    # クリアまでに実際にプレイした時間（放置した時間は含まない）
+    play_seconds = models.IntegerField(default=0, verbose_name='プレイ時間（秒）')
+    # 育成開始からクリアまでの経過時間（日をまたいだ時間も含む）
+    elapsed_seconds = models.IntegerField(default=0, verbose_name='経過時間（秒）')
+    turns = models.IntegerField(default=0, verbose_name='ターン数')
+
+    def __str__(self):
+        return f"{self.user.username} {self.clear_number}回目"
+
+    class Meta:
+        verbose_name = 'クリア記録'
+        verbose_name_plural = 'クリア記録'
+        ordering = ['-cleared_at']

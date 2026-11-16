@@ -1,41 +1,110 @@
 from django.contrib import admin
-from .models import SaveData, ActionLog
+from .models import SaveData, ActionLog, PlaySession, ClearLog
+
+
+def format_duration(seconds):
+    seconds = int(seconds or 0)
+    h, rest = divmod(seconds, 3600)
+    m, s = divmod(rest, 60)
+    if h:
+        return f"{h}時間{m}分{s}秒"
+    if m:
+        return f"{m}分{s}秒"
+    return f"{s}秒"
+
+
+@admin.register(PlaySession)
+class PlaySessionAdmin(admin.ModelAdmin):
+
+    list_display = (
+        'user', 'game_round', 'start_text', 'end_text',
+        'duration_text', 'logged_out_text', 'page_views',
+    )
+    list_filter = ('user', 'game_round')
+    search_fields = ('user__username',)
+    ordering = ('-started_at',)
+    date_hierarchy = 'started_at'          # 日付で絞り込める
+
+    readonly_fields = (
+        'user', 'game_round', 'started_at', 'last_seen_at',
+        'logged_out_at', 'page_views',
+    )
+
+    @admin.display(description='プレイ開始', ordering='started_at')
+    def start_text(self, obj):
+        from django.utils import timezone
+        return timezone.localtime(obj.started_at).strftime('%Y年%m月%d日 %H:%M:%S')
+
+    @admin.display(description='プレイ終了', ordering='last_seen_at')
+    def end_text(self, obj):
+        from django.utils import timezone
+        return timezone.localtime(obj.last_seen_at).strftime('%H:%M:%S')
+
+    @admin.display(description='プレイ時間')
+    def duration_text(self, obj):
+        return format_duration(obj.duration_seconds())
+
+    @admin.display(description='ログアウト')
+    def logged_out_text(self, obj):
+        from django.utils import timezone
+        if obj.logged_out_at is None:
+            return '（未記録）'
+        return timezone.localtime(obj.logged_out_at).strftime('%H:%M:%S')
+
+
+@admin.register(ClearLog)
+class ClearLogAdmin(admin.ModelAdmin):
+
+    list_display = (
+        'user', 'clear_number_text', 'game_round',
+        'play_time_text', 'elapsed_text', 'turns', 'cleared_at',
+    )
+    list_filter = ('user',)
+    search_fields = ('user__username',)
+    ordering = ('user', 'clear_number')
+
+    readonly_fields = (
+        'user', 'game_round', 'clear_number', 'cleared_at',
+        'play_seconds', 'elapsed_seconds', 'turns',
+    )
+
+    @admin.display(description='クリア回数', ordering='clear_number')
+    def clear_number_text(self, obj):
+        return f"{obj.clear_number}回目"
+
+    @admin.display(description='クリアまでのプレイ時間')
+    def play_time_text(self, obj):
+        return format_duration(obj.play_seconds)
+
+    @admin.display(description='育成開始からの経過時間')
+    def elapsed_text(self, obj):
+        return format_duration(obj.elapsed_seconds)
 
 
 @admin.register(ActionLog)
 class ActionLogAdmin(admin.ModelAdmin):
 
-    # 一覧画面に表示する項目
     list_display = (
-        'user', 'game_round', 'action', 'turn', 'result',  # game_round を追加
+        'user', 'game_round', 'action', 'turn', 'result',
         'energy', 'fullness', 'satisfaction', 'growth', 'timestamp',
     )
 
-    list_filter = ('game_round', 'action', 'user')  # game_round を追加
-
-    readonly_fields = (
-        'user', 'game_round', 'action', 'turn', 'energy',  # game_round を追加
-        'fullness', 'satisfaction', 'growth', 'result', 'timestamp',
-    )
-
-    # 検索
     search_fields = (
         'user__username',
         'action',
     )
 
-    # 絞り込み
     list_filter = (
+        'game_round',
         'action',
         'user',
     )
 
-    # 新しい順に並べる
     ordering = ('-timestamp',)
 
-    # 編集不可（ログは読み取り専用にする）
     readonly_fields = (
         'user',
+        'game_round',
         'action',
         'turn',
         'energy',
@@ -126,6 +195,7 @@ class SaveDataAdmin(admin.ModelAdmin):
                     'game_round',
                     'play_session_count',
                     'total_play_seconds',
+                    'round_play_seconds',
                     'play_started_at',
                 )
             }

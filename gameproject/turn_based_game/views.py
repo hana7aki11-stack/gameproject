@@ -2,11 +2,16 @@ from django.shortcuts import render, redirect
 import random
 from datetime import datetime, timedelta
 from urllib.parse import urlencode
-from .models import SaveData, ActionLog
+from .models import SaveData, ActionLog, PlaySession, ClearLog
 from django.contrib.auth import login
 from .forms import SignUpForm
 from django.urls import reverse
 from django.utils import timezone
+from django.contrib.auth.signals import user_logged_out
+from django.dispatch import receiver
+
+
+
 
 
 
@@ -279,6 +284,7 @@ def get_growth_stage(growth):
     return 4
 
 
+
 def get_max_time(growth):
     # 成長段階ごとの1日の時間
     if growth < 20:
@@ -289,7 +295,69 @@ def get_max_time(growth):
         return 16
     return 18
 
+SESSION_GAP_SECONDS = 30 * 60
 
+def touch_play_session(user, game_round):
+    """ページを開くたびに呼ぶ。プレイの開始・継続を記録し、増えた秒数を返す"""
+    if not user.is_authenticated:
+        return 0
+
+    now = timezone.now()
+    last = (
+        PlaySession.objects
+        .filter(user=user)
+        .order_by('-started_at')
+        .first()
+    )
+
+    # 続きのプレイ：ログアウトしておらず、最後の操作から30分以内
+    if (
+        last is not None
+        and last.logged_out_at is None
+        and (now - last.last_seen_at).total_seconds() < SESSION_GAP_SECONDS
+    ):
+        added = int((now - last.last_seen_at).total_seconds())
+        last.last_seen_at = now
+        last.page_views += 1
+        last.game_round = game_round
+        last.save(update_fields=['last_seen_at', 'page_views', 'game_round'])
+        return added
+
+    # 新しいプレイ：1行追加する
+    PlaySession.objects.create(
+        user=user, game_round=game_round,
+        started_at=now, last_seen_at=now, page_views=1,
+    )
+    return 0
+
+def update_play_time(request):
+    if not request.user.is_authenticated:
+        return
+
+    game_round = request.session.get('game_round', 1)
+
+    added_seconds = touch_play_session(
+        request.user,
+        game_round
+    )
+
+    save_data = SaveData.objects.get(user=request.user)
+    save_data.round_play_seconds += added_seconds
+    save_data.save(update_fields=['round_play_seconds'])
+
+def close_play_session(user):
+    """ログアウト時に呼ぶ。直近のプレイにログアウト時刻を記録する"""
+    if not user.is_authenticated:
+        return
+    last = (
+        PlaySession.objects
+        .filter(user=user, logged_out_at__isnull=True)
+        .order_by('-started_at')
+        .first()
+    )
+    if last is not None:
+        last.logged_out_at = timezone.now()
+        last.save(update_fields=['logged_out_at'])
 
 
 def home(request):
@@ -298,6 +366,8 @@ def home(request):
     reaction_state = "normal"
     tutorial_text = ""
 
+    now = timezone.now()
+
     # -------------------------
     # セーブデータ（ログイン中のみ）
     # -------------------------
@@ -305,6 +375,16 @@ def home(request):
     save_data = None
     if request.user.is_authenticated:
         save_data, _ = SaveData.objects.get_or_create(user=request.user)
+
+    if save_data is not None:
+        request.session['game_round'] = save_data.game_round
+
+        # ホーム画面を開いたことを記録
+        added_seconds = touch_play_session(
+            request.user,
+            save_data.game_round
+        )
+        save_data.round_play_seconds += added_seconds
 
     action = request.GET.get('action')
 
@@ -324,7 +404,6 @@ def home(request):
 
         request.session['tutorial_choice_required'] = False
         request.session['pending_result'] = ''
-        request.session['session_start'] = timezone.now().isoformat()
         request.session['auto_loaded'] = True
 
         if save_data is not None:
@@ -347,9 +426,14 @@ def home(request):
             save_data.notified_stage = 0
             save_data.tutorial_step = 0
             save_data.has_started_game = True
-            save_data.game_round += 1       # 新しい育成を始めたので、育成回数を進める
+            save_data.game_round += 1
             save_data.play_session_count += 1
             save_data.play_started_at = timezone.now()
+            save_data.round_play_seconds = 0
+
+            # セッション側の育成回数も更新
+            request.session['game_round'] = save_data.game_round
+
             save_data.save()
 
         return redirect('/')
@@ -381,7 +465,6 @@ def home(request):
         # 2回目以降の育成でもイントロ・チュートリアルを見せる
         request.session['tutorial_choice_required'] = False
         request.session['pending_result'] = ''
-        request.session['session_start'] = timezone.now().isoformat()
         request.session['auto_loaded'] = True
 
         if save_data is not None:
@@ -404,9 +487,14 @@ def home(request):
             save_data.notified_stage = 0
             save_data.tutorial_step = 0
             save_data.has_started_game = True
-            save_data.game_round += 1          # 育成回数を進める
+            save_data.game_round += 1
             save_data.play_session_count += 1
             save_data.play_started_at = timezone.now()
+            save_data.round_play_seconds = 0
+
+            # セッション側の育成回数も更新
+            request.session['game_round'] = save_data.game_round
+
             save_data.save()
 
         return redirect('/')
@@ -444,7 +532,6 @@ def home(request):
             save_data.play_started_at = timezone.now()
         save_data.save()
 
-        request.session['session_start'] = timezone.now().isoformat()
         request.session['auto_loaded'] = True
 
     # 足りない項目は初期値で埋める
@@ -1078,24 +1165,28 @@ def home(request):
 
     if save_data is not None:
 
-        # 総プレイ時間
-        now = timezone.now()
-        start_str = request.session.get('session_start')
-        if start_str:
-            elapsed = int((now - datetime.fromisoformat(start_str)).total_seconds())
-            if 0 < elapsed < 3600:
-                save_data.total_play_seconds += elapsed
-        request.session['session_start'] = now.isoformat()
+
 
         # ゲームオーバー・クリア
         if energy <= 0 and before_energy > 0:
             save_data.game_over_count += 1
         if growth >= 100 and before_growth < 100:
             save_data.clear_count += 1
+
+            elapsed = 0
             if save_data.play_started_at:
-                save_data.clear_time_seconds = int(
-                    (now - save_data.play_started_at).total_seconds()
-                )
+                elapsed = int((now - save_data.play_started_at).total_seconds())
+                save_data.clear_time_seconds = elapsed
+
+            ClearLog.objects.create(
+                user=request.user,
+                game_round=save_data.game_round,
+                clear_number=save_data.clear_count,
+                cleared_at=now,
+                play_seconds=save_data.round_play_seconds,
+                elapsed_seconds=elapsed,
+                turns=turn,
+            )
 
         save_data.satisfaction = satisfaction
         save_data.energy = energy
@@ -1223,6 +1314,7 @@ def signup(request):
 
 
 def ball_game(request):
+    update_play_time(request)
 
     growth = request.session["growth"]
 
@@ -1273,7 +1365,7 @@ def ball_game(request):
 
 
 def food_game(request):
-
+    update_play_time(request)
     growth = request.session["growth"]
 
     if growth < 20:
@@ -1332,7 +1424,7 @@ def food_game(request):
 
 
 def dodge_game(request):
-
+    update_play_time(request)
     growth = request.session["growth"]
 
     if growth < 20:
@@ -1381,7 +1473,7 @@ def dodge_game(request):
 
 
 def dance_game(request):
-
+    update_play_time(request)
     growth = request.session["growth"]
 
     if growth < 20:
@@ -1429,7 +1521,7 @@ def dance_game(request):
 
 
 def timing_game(request):
-
+    update_play_time(request)
     growth = request.session["growth"]
 
     if growth < 20:
@@ -1478,7 +1570,7 @@ def timing_game(request):
 
 
 def count_game(request):
-
+    update_play_time(request)
     growth = request.session["growth"]
 
     if growth < 20:
@@ -1528,3 +1620,7 @@ def count_game(request):
         "food_emojis": food_emojis,
     }
     return render(request, "turn_based_game/count_game.html", status)
+
+@receiver(user_logged_out)
+def on_user_logged_out(sender, request, user, **kwargs):
+    close_play_session(user)
