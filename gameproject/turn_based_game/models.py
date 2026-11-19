@@ -273,8 +273,8 @@ class SaveData(models.Model):
         return self.user.username
 
     class Meta:
-        verbose_name = 'ゲームデータ'
-        verbose_name_plural = 'ゲームデータ'
+        verbose_name = '育成データ'
+        verbose_name_plural = '育成データ'
 
     # チュートリアル進行（0=イントロ前, 1〜3=チュートリアル中, 4=完了）
     tutorial_step = models.IntegerField(default=0, verbose_name='チュートリアル進行')

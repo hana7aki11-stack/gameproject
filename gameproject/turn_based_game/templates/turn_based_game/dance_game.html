@@ -444,6 +444,9 @@
 
     let gameEnded = false;
 
+    // 回答時間中のみ入力を許可する
+    let inputEnabled = false;
+
     let sequence = [];
 
     let arrowElements = [];
@@ -539,6 +542,9 @@
     function setButtonsEnabled(
         enabled
     ) {
+
+        // ボタンとキーボードの入力許可を統一
+        inputEnabled = enabled;
 
         document
             .querySelectorAll(
@@ -737,7 +743,8 @@
 
         if (
             gameEnded ||
-            !window.gameStarted
+            !window.gameStarted ||
+            !inputEnabled
         ) {
             return;
         }
@@ -1095,6 +1102,10 @@
 
         setTimeout(
             function () {
+
+                if (window.markPlaySessionNavigation) {
+                    window.markPlaySessionNavigation();
+                }
 
                 window.location.href =
                     "{% url 'home' %}" +

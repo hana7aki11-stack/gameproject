@@ -430,6 +430,10 @@
 
         setTimeout(function () {
 
+            if (window.markPlaySessionNavigation) {
+                window.markPlaySessionNavigation();
+            }
+
             window.location.href =
                 "{% url 'home' %}" +
                 "?action=ball_game" +

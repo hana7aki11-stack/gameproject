@@ -679,6 +679,31 @@
             targetCount = 1;
         }
 
+        // 正解が10個以上にならないように調整
+if (targetCount > 9) {
+
+    const otherEmojis = usedEmojis.filter(
+        emoji => emoji !== targetEmoji
+    );
+
+    for (
+        let i = 0;
+        i < items.length && targetCount > 9;
+        i++
+    ) {
+
+        if (items[i] === targetEmoji) {
+
+            items[i] = otherEmojis[
+                Math.floor(
+                    Math.random() * otherEmojis.length
+                )
+            ];
+
+            targetCount--;
+        }
+    }
+}
 
         correctAnswer =
             targetCount;
@@ -1063,6 +1088,10 @@
 
         setTimeout(
             function () {
+
+                if (window.markPlaySessionNavigation) {
+                    window.markPlaySessionNavigation();
+                }
 
                 window.location.href =
                     "{% url 'home' %}" +

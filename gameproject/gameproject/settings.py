@@ -41,6 +41,7 @@ ALLOWED_HOSTS = [
     "gameproject-1jpr.onrender.com",
     "127.0.0.1",
     "localhost",
+    '192.168.1.8',
 ]
 
 
@@ -188,6 +189,8 @@ INSTALLED_APPS = [
     'storygame',
     'turn_based_game',
 
+    # リアルタイム型育成ゲーム
+    'real_time_game',
 ]
 
 

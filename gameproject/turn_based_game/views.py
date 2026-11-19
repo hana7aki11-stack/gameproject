@@ -9,6 +9,16 @@ from django.urls import reverse
 from django.utils import timezone
 from django.contrib.auth.signals import user_logged_out
 from django.dispatch import receiver
+from django.db import transaction
+from django.http import JsonResponse
+from django.contrib.auth.decorators import login_required
+from django.views.decorators.http import require_POST
+
+from play_session_system import (
+    touch_play_session,
+    close_play_session,
+    calculate_play_seconds_until,
+)
 
 
 
@@ -105,12 +115,14 @@ ITEM_TYPE_WEIGHTS = {
     'wallpaper': 10,   # 壁紙：10%
 }
 
-# キャラクターのセリフ（理由は言わず、ヒントだけ出す）
+
+# キャラクターのセリフ
+# 状態を直接説明せず、プレイヤーに推測してもらう
 HINT_TEXTS = {
     'hungry': ["なんだかそわそわするな……"],
     'tired':  ["なんだか元気が出ないな……"],
     'full':   ["うぅ……"],
-    'bored':  ["ねえねえ、なにかしようよ"],
+    'bored':  ["ねえねえ……"],
     'happy':  ["ふふっ♪"],
     'normal': ["どうしたの？", "なあに？"],
 }
@@ -295,71 +307,72 @@ def get_max_time(growth):
         return 16
     return 18
 
-SESSION_GAP_SECONDS = 30 * 60
+# ==========================================
+# プレイ時間計測
+# ==========================================
 
-def touch_play_session(user, game_round):
-    """ページを開くたびに呼ぶ。プレイの開始・継続を記録し、増えた秒数を返す"""
-    if not user.is_authenticated:
-        return 0
+@login_required
+@require_POST
+def play_heartbeat(request):
 
-    now = timezone.now()
-    last = (
-        PlaySession.objects
-        .filter(user=user)
-        .order_by('-started_at')
-        .first()
+    page_view = request.POST.get("page_view") == "1"
+
+    try:
+        expected_round = int(
+            request.POST.get("game_round", "")
+        )
+
+    except (TypeError, ValueError):
+        return JsonResponse(
+            {"ok": False},
+            status=400
+        )
+
+    play_session = touch_play_session(
+        user=request.user,
+        save_model=SaveData,
+        session_model=PlaySession,
+        page_view=page_view,
+        expected_round=expected_round,
     )
 
-    # 続きのプレイ：ログアウトしておらず、最後の操作から30分以内
-    if (
-        last is not None
-        and last.logged_out_at is None
-        and (now - last.last_seen_at).total_seconds() < SESSION_GAP_SECONDS
-    ):
-        added = int((now - last.last_seen_at).total_seconds())
-        last.last_seen_at = now
-        last.page_views += 1
-        last.game_round = game_round
-        last.save(update_fields=['last_seen_at', 'page_views', 'game_round'])
-        return added
+    if play_session is None:
+        return JsonResponse(
+            {"ok": False},
+            status=409
+        )
 
-    # 新しいプレイ：1行追加する
-    PlaySession.objects.create(
-        user=user, game_round=game_round,
-        started_at=now, last_seen_at=now, page_views=1,
+    return JsonResponse({
+        "ok": True,
+        "session_id": play_session.pk
+    })
+
+
+@login_required
+@require_POST
+def end_play_session(request):
+
+    try:
+        session_id = int(
+            request.POST.get("session_id", "")
+        )
+
+    except (TypeError, ValueError):
+        return JsonResponse(
+            {"ok": False},
+            status=400
+        )
+
+    close_play_session(
+        user=request.user,
+        save_model=SaveData,
+        session_model=PlaySession,
+        session_id=session_id,
     )
-    return 0
 
-def update_play_time(request):
-    if not request.user.is_authenticated:
-        return
+    return JsonResponse({"ok": True})
 
-    game_round = request.session.get('game_round', 1)
-
-    added_seconds = touch_play_session(
-        request.user,
-        game_round
-    )
-
-    save_data = SaveData.objects.get(user=request.user)
-    save_data.round_play_seconds += added_seconds
-    save_data.save(update_fields=['round_play_seconds'])
-
-def close_play_session(user):
-    """ログアウト時に呼ぶ。直近のプレイにログアウト時刻を記録する"""
-    if not user.is_authenticated:
-        return
-    last = (
-        PlaySession.objects
-        .filter(user=user, logged_out_at__isnull=True)
-        .order_by('-started_at')
-        .first()
-    )
-    if last is not None:
-        last.logged_out_at = timezone.now()
-        last.save(update_fields=['logged_out_at'])
-
-
+@transaction.atomic
 def home(request):
 
     event_message = ""
@@ -373,18 +386,16 @@ def home(request):
     # -------------------------
 
     save_data = None
+
     if request.user.is_authenticated:
-        save_data, _ = SaveData.objects.get_or_create(user=request.user)
+        save_data, _ = (
+            SaveData.objects
+            .select_for_update()
+            .get_or_create(user=request.user)
+        )
 
     if save_data is not None:
         request.session['game_round'] = save_data.game_round
-
-        # ホーム画面を開いたことを記録
-        added_seconds = touch_play_session(
-            request.user,
-            save_data.game_round
-        )
-        save_data.round_play_seconds += added_seconds
 
     action = request.GET.get('action')
 
@@ -407,6 +418,15 @@ def home(request):
         request.session['auto_loaded'] = True
 
         if save_data is not None:
+            # 前回のプレイセッションを終了
+            close_play_session(
+                user=request.user,
+                save_model=SaveData,
+                session_model=PlaySession,
+            )
+
+            save_data.refresh_from_db()
+
             save_data.satisfaction = 50
             save_data.energy = 50
             save_data.growth = 0
@@ -427,9 +447,9 @@ def home(request):
             save_data.tutorial_step = 0
             save_data.has_started_game = True
             save_data.game_round += 1
-            save_data.play_session_count += 1
             save_data.play_started_at = timezone.now()
             save_data.round_play_seconds = 0
+            save_data.clear_time_seconds = 0
 
             # セッション側の育成回数も更新
             request.session['game_round'] = save_data.game_round
@@ -468,6 +488,15 @@ def home(request):
         request.session['auto_loaded'] = True
 
         if save_data is not None:
+            # 前回のプレイセッションを終了
+            close_play_session(
+                user=request.user,
+                save_model=SaveData,
+                session_model=PlaySession,
+            )
+
+            save_data.refresh_from_db()
+
             save_data.satisfaction = 50
             save_data.energy = 50
             save_data.growth = 0
@@ -488,9 +517,9 @@ def home(request):
             save_data.tutorial_step = 0
             save_data.has_started_game = True
             save_data.game_round += 1
-            save_data.play_session_count += 1
             save_data.play_started_at = timezone.now()
             save_data.round_play_seconds = 0
+            save_data.clear_time_seconds = 0
 
             # セッション側の育成回数も更新
             request.session['game_round'] = save_data.game_round
@@ -527,7 +556,6 @@ def home(request):
         for key in make_defaults().keys():
             request.session[key] = getattr(save_data, key)
 
-        save_data.play_session_count += 1
         if not save_data.play_started_at:
             save_data.play_started_at = timezone.now()
         save_data.save()
@@ -770,15 +798,8 @@ def home(request):
         satisfaction -= 5
         reaction_state = "normal"
 
-        # 3ターンごとのランダムイベント
-        if turn % 3 == 0:
-            event = random.randint(1, 4)
-            if event == 1:
-                satisfaction += 20
-            elif event == 2:
-                energy -= 15
-            elif event == 3:
-                growth += 2
+
+
 
     # -------------------------
     # 持ち物の配置・撤去
@@ -786,8 +807,33 @@ def home(request):
 
     if action == "place":
         item = request.GET.get("item", "")
+
+        # 初期壁紙は最初から使用可能
+        # それ以外は所持しているアイテムのみ配置できる
+        if item != "room-default" and item not in items:
+            request.session["general_notice"] = (
+                "所持していないアイテムは配置できません。"
+            )
+            return redirect("/?menu=items")
+
         if item.startswith("room-"):
             request.session["room_wallpaper"] = item
+
+            # ログイン中はデータベースにも保存
+            if save_data is not None:
+                save_data.room_wallpaper = item
+                save_data.save(update_fields=["room_wallpaper"])
+
+            # 壁紙変更のお知らせ
+            item_name = ITEM_NAMES.get(item, item)
+
+            if item == "room-default":
+                item_name = "初期の壁紙"
+
+            request.session["general_notice"] = (
+                f"{item_name}に変更しました。"
+            )
+
             return redirect("/?menu=items")
         placed_items = request.session.get("placed_items", [])
         new_category = item_categories.get(item)
@@ -796,13 +842,29 @@ def home(request):
                 placed_items.remove(placed_item)
         placed_items.append(item)
         request.session["placed_items"] = placed_items
+
+        # 家具を配置したことを通知
+        item_name = ITEM_NAMES.get(item, item)
+
+        request.session["general_notice"] = (
+            f"{item_name}を配置しました。"
+        )
+
         return redirect("/?menu=items")
 
     if action == 'remove':
         item = request.GET.get('item', '')
         placed_items = request.session.get('placed_items', [])
+
         if item in placed_items:
             placed_items.remove(item)
+
+            # 家具撤去のお知らせ
+            item_name = ITEM_NAMES.get(item, item)
+            request.session["general_notice"] = (
+                f"{item_name}を片付けました。"
+            )
+
         request.session['placed_items'] = placed_items
         return redirect('/?menu=items')
 
@@ -985,6 +1047,37 @@ def home(request):
         game_status = "大きく成長した！ゲームクリア！"
 
     # -------------------------
+    # 通常のお知らせ
+    # -------------------------
+
+    # 操作エラーなどの通知を取得
+    notice_message = request.session.pop(
+        "general_notice",
+        ""
+    )
+
+    # 通常通知がない場合はミニゲーム中断通知を取得
+    abandon_notice = request.session.pop(
+        "minigame_abandon_notice",
+        ""
+    )
+
+    if not notice_message:
+        notice_message = abandon_notice
+
+    # ほかの通知がない場合は時間切れを案内
+    if (
+            not notice_message
+            and remaining_time == 0
+            and not game_end
+            and tutorial_step not in (1, 2, 3)
+    ):
+        notice_message = (
+            "今日の時間を使い切りました。"
+            "「次の日へ」を押してください。"
+        )
+
+    # -------------------------
     # キャラクターのヒント・反応
     # -------------------------
 
@@ -1005,9 +1098,30 @@ def home(request):
     # -------------------------
 
     items_display = [
-        {'id': i, 'name': ITEM_NAMES.get(i, i), 'is_new': i in new_items}
+        {
+            'id': i,
+            'name': ITEM_NAMES.get(i, i),
+            'is_new': i in new_items,
+
+            # 家具と壁紙を区別する
+            'is_wallpaper': i.startswith('room-'),
+
+            # 家具が配置されているか
+            'is_placed': i in placed_items,
+
+            # 現在選択されている壁紙か
+            'is_selected': i == room_wallpaper,
+
+            # 表示する画像
+            'image': (
+                f'images/{i}-morning.png'
+                if i.startswith('room-')
+                else f'images/{i}.png'
+            ),
+        }
         for i in items
     ]
+
     has_new_items = len(new_items) > 0
 
     # 持ち物一覧を開いたらNEWを消す
@@ -1111,11 +1225,31 @@ def home(request):
 
     growth_stage = get_growth_stage(growth)
 
+    # ================================
+    # 画面表示専用のキャラクター状態
+    # tiredをhappyより優先する
+    # ================================
+
+    is_tired = (
+            satisfaction <= 30
+            or energy <= 30
+            or fullness <= 30
+            or fullness >= 90
+            or character_state == "tired"
+    )
+
+    if is_tired:
+        display_character_state = "tired"
+    elif character_state == "happy" or satisfaction >= 80:
+        display_character_state = "happy"
+    else:
+        display_character_state = "normal"
+
     state_type = ""
     if growth_stage != 4:
-        if character_state == "happy":
+        if display_character_state == "happy":
             state_type = "-happy"
-        elif character_state == "tired":
+        elif display_character_state == "tired":
             state_type = "-tired"
 
     character_image = f'images/character{growth_stage}{face_type}{state_type}.png'
@@ -1127,7 +1261,8 @@ def home(request):
         "full": "fullMove 4s ease-in-out infinite",
     }
     character_animation = animation_map.get(
-        character_state, "floatCharacter 2s ease-in-out infinite"
+        display_character_state,
+        "floatCharacter 2s ease-in-out infinite"
     )
 
     # -------------------------
@@ -1173,17 +1308,38 @@ def home(request):
         if growth >= 100 and before_growth < 100:
             save_data.clear_count += 1
 
+            # 実際にクリアを処理した時刻
+            cleared_at = timezone.now()
+
             elapsed = 0
+
             if save_data.play_started_at:
-                elapsed = int((now - save_data.play_started_at).total_seconds())
+                elapsed = max(
+                    0,
+                    int(
+                        (
+                                cleared_at
+                                - save_data.play_started_at
+                        ).total_seconds()
+                    )
+                )
+
                 save_data.clear_time_seconds = elapsed
+
+            # クリア時点までの累積プレイ時間
+            play_seconds = calculate_play_seconds_until(
+                user=request.user,
+                session_model=PlaySession,
+                game_round=save_data.game_round,
+                ended_at=cleared_at,
+            )
 
             ClearLog.objects.create(
                 user=request.user,
                 game_round=save_data.game_round,
                 clear_number=save_data.clear_count,
-                cleared_at=now,
-                play_seconds=save_data.round_play_seconds,
+                cleared_at=cleared_at,
+                play_seconds=play_seconds,
                 elapsed_seconds=elapsed,
                 turns=turn,
             )
@@ -1243,6 +1399,7 @@ def home(request):
         'fullness': fullness,
         'turn': turn,
         'event_message': event_message,
+        'notice_message': notice_message,
         'character_image': character_image,
         'game_status': game_status,
         'game_end': game_end,
@@ -1269,6 +1426,7 @@ def home(request):
         'placed_items': placed_items,
         'placed_item_images': placed_item_images,
         'room_wallpaper': background_image,
+        'selected_wallpaper': room_wallpaper,
         'background_image': background_image,
         'sleep_hours': remaining_time,
         'character_damage_image': f"images/character{growth_stage}-tired.png",
@@ -1314,7 +1472,6 @@ def signup(request):
 
 
 def ball_game(request):
-    update_play_time(request)
 
     growth = request.session["growth"]
 
@@ -1365,7 +1522,6 @@ def ball_game(request):
 
 
 def food_game(request):
-    update_play_time(request)
     growth = request.session["growth"]
 
     if growth < 20:
@@ -1424,7 +1580,6 @@ def food_game(request):
 
 
 def dodge_game(request):
-    update_play_time(request)
     growth = request.session["growth"]
 
     if growth < 20:
@@ -1473,7 +1628,6 @@ def dodge_game(request):
 
 
 def dance_game(request):
-    update_play_time(request)
     growth = request.session["growth"]
 
     if growth < 20:
@@ -1521,7 +1675,6 @@ def dance_game(request):
 
 
 def timing_game(request):
-    update_play_time(request)
     growth = request.session["growth"]
 
     if growth < 20:
@@ -1570,7 +1723,6 @@ def timing_game(request):
 
 
 def count_game(request):
-    update_play_time(request)
     growth = request.session["growth"]
 
     if growth < 20:
@@ -1623,4 +1775,52 @@ def count_game(request):
 
 @receiver(user_logged_out)
 def on_user_logged_out(sender, request, user, **kwargs):
-    close_play_session(user)
+
+    if user is None:
+        return
+
+    close_play_session(
+        user=user,
+        save_model=SaveData,
+        session_model=PlaySession,
+        is_logout=True,
+    )
+
+@require_POST
+def abandon_minigame(request):
+
+    pending_result = request.session.get("pending_result", "")
+
+    # 実行中のミニゲームがなければ、そのまま戻る
+    if not pending_result:
+        return redirect("home")
+
+    # 結果の受け付けを無効化する
+    request.session["pending_result"] = ""
+
+    # 育成画面に表示する通知
+    request.session["minigame_abandon_notice"] = (
+        "ミニゲームを中断しました。"
+        "消費した行動時間は戻りません。"
+    )
+
+    # 中断ログを保存
+    if request.user.is_authenticated:
+        save_data = SaveData.objects.filter(
+            user=request.user
+        ).first()
+
+        if save_data is not None:
+            ActionLog.objects.create(
+                user=request.user,
+                game_round=save_data.game_round,
+                action="ミニゲーム中断",
+                turn=request.session.get("turn", 1),
+                energy=request.session.get("energy", 50),
+                fullness=request.session.get("fullness", 50),
+                satisfaction=request.session.get("satisfaction", 50),
+                growth=request.session.get("growth", 0),
+                result=f"中断したゲーム: {pending_result}",
+            )
+
+    return redirect("home")

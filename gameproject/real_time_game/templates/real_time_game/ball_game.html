@@ -1,0 +1,496 @@
+{% extends 'real_time_game/game_base.html' %}
+{% load static %}
+
+{% block page_title %}ボールキャッチ{% endblock %}
+
+{% block rules %}
+<p><b>このゲームでは、動くボールをキャッチします。</b></p>
+<p>ボールをタップ！1回タップで1点です。</p>
+<p>ボールは勝手に動くので、逃げられる前にタップしよう。</p>
+{% endblock %}
+
+{% block extra_style %}
+
+.game-object{
+    width:200px;
+    position:absolute;
+    cursor:pointer;
+    user-select:none;
+    -webkit-user-select:none;
+    touch-action:manipulation;
+}
+
+.score-popup {
+    position:absolute;
+    font-size:28px;
+    font-weight:bold;
+    color:#4caf50;
+    pointer-events:none;
+    animation:popUp 0.8s ease-out forwards;
+    z-index:20;
+}
+
+@keyframes popUp {
+    0%{
+        opacity:1;
+        transform:translateY(0);
+    }
+    100%{
+        opacity:0;
+        transform:translateY(-50px);
+    }
+}
+
+{% endblock %}
+
+
+{% block game_area %}
+
+<img
+    src="{% static ball_image %}"
+    id="ball"
+    class="game-object"
+    draggable="false"
+    alt="ボール"
+>
+
+{% endblock %}
+
+
+{% block config %}
+
+<div id="game-config"
+     data-difficulty="{{ selected_difficulty }}"
+     data-ball-speed="{{ ball_speed }}"
+     data-spawn-interval="{{ spawn_interval }}"
+     data-score-multiplier="{{ score_multiplier }}"
+     style="display:none;">
+</div>
+
+{% endblock %}
+
+
+{% block script %}
+
+(function () {
+
+
+    /* =========================================================
+       設定値
+       ========================================================= */
+
+    const config = document.getElementById("game-config");
+
+    const difficulty = config.dataset.difficulty || "easy";
+
+    const parsedBallSpeed = parseFloat(config.dataset.ballSpeed);
+    const parsedSpawnInterval = parseInt(config.dataset.spawnInterval);
+    const parsedScoreMultiplier = parseFloat(config.dataset.scoreMultiplier);
+
+    const ballSpeed =
+        Number.isFinite(parsedBallSpeed) && parsedBallSpeed > 0
+            ? parsedBallSpeed
+            : 1;
+
+    const spawnInterval =
+        Number.isFinite(parsedSpawnInterval) && parsedSpawnInterval > 0
+            ? parsedSpawnInterval
+            : 1000;
+
+    const scoreMultiplier =
+        Number.isFinite(parsedScoreMultiplier) && parsedScoreMultiplier > 0
+            ? parsedScoreMultiplier
+            : 1;
+
+
+    /* =========================================================
+       難易度設定
+       ========================================================= */
+
+    const TIME_LIMIT_MAP = {
+        easy:20,
+        normal:18,
+        hard:15,
+        oni:12
+    };
+
+    const BALL_SIZE_MAP = {
+        easy:200,
+        normal:200,
+        hard:200,
+        oni:190
+    };
+
+
+    /* =========================================================
+       要素
+       ========================================================= */
+
+    const character = document.getElementById("character");
+
+    const normalImage =
+        "{% static character_image %}";
+
+    const happyImage =
+        "{% static character_happy_image %}";
+
+    const damageImage =
+        "{% static character_damage_image %}";
+
+    const ball = document.getElementById("ball");
+    const area = document.getElementById("game-area");
+
+    const scoreDisplay =
+        document.getElementById("score");
+
+    const timeDisplay =
+        document.getElementById("time");
+
+    const backButton =
+        document.getElementById("back-button");
+
+    const gameOver =
+        document.getElementById("game-over");
+
+    const finalScore =
+        document.getElementById("final-score");
+
+
+    /* =========================================================
+       ゲーム状態
+       ========================================================= */
+
+    let score = 0;
+
+    let time =
+        TIME_LIMIT_MAP[difficulty] || 20;
+
+    let gameEnded = false;
+
+    let timer = null;
+    let autoMoveTimer = null;
+
+    let moveTimeouts = [];
+
+
+    /* =========================================================
+       ボールサイズ
+       ========================================================= */
+
+    const configuredBallSize =
+        BALL_SIZE_MAP[difficulty] || 200;
+
+    const ballSize =
+        Math.min(
+            configuredBallSize,
+            area.clientWidth * 0.35
+        );
+
+    ball.style.width = ballSize + "px";
+
+
+    /* =========================================================
+       初期表示
+       ========================================================= */
+
+    timeDisplay.textContent = time;
+
+
+    /* =========================================================
+       ボール移動
+       ========================================================= */
+
+    function moveBall() {
+
+        if (gameEnded) {
+            return;
+        }
+
+        const maxX =
+            Math.max(0, area.clientWidth - ball.offsetWidth);
+
+        const maxY =
+            Math.max(0, area.clientHeight - ball.offsetHeight);
+
+        const x =
+            Math.random() * maxX;
+
+        const y =
+            Math.random() * maxY;
+
+        ball.style.left = x + "px";
+        ball.style.top = y + "px";
+    }
+
+
+    /* =========================================================
+       スコア
+       ========================================================= */
+
+    function addScore() {
+
+        if (gameEnded) {
+            return;
+        }
+
+        score += scoreMultiplier;
+
+        scoreDisplay.textContent =
+            Math.round(score);
+    }
+
+
+    /* =========================================================
+       キャラクター
+       ========================================================= */
+
+    function happyCharacter() {
+
+        if (gameEnded || !character) {
+            return;
+        }
+
+        character.src = happyImage;
+
+        const timeoutId = setTimeout(function () {
+
+            if (!gameEnded) {
+                character.src = normalImage;
+            }
+
+        }, 500);
+
+        moveTimeouts.push(timeoutId);
+    }
+
+
+    /* =========================================================
+       スコアポップアップ
+       ========================================================= */
+
+    function showScorePopup(x, y) {
+
+        if (gameEnded) {
+            return;
+        }
+
+        const popup =
+            document.createElement("div");
+
+        popup.className = "score-popup";
+
+        popup.textContent =
+            "+" + Math.round(scoreMultiplier);
+
+        popup.style.left = x + "px";
+        popup.style.top = y + "px";
+
+        area.appendChild(popup);
+
+        const timeoutId =
+            setTimeout(function () {
+
+                if (popup.parentNode) {
+                    popup.remove();
+                }
+
+            }, 800);
+
+        moveTimeouts.push(timeoutId);
+    }
+
+
+    /* =========================================================
+       ボールをタップ
+       ========================================================= */
+
+    function handleBallHit(e) {
+
+        if (gameEnded || !window.gameStarted) {
+            return;
+        }
+
+        e.preventDefault();
+
+        const areaRect =
+            area.getBoundingClientRect();
+
+        const clientX =
+            e.clientX;
+
+        const clientY =
+            e.clientY;
+
+        const x =
+            clientX - areaRect.left;
+
+        const y =
+            clientY - areaRect.top;
+
+        showScorePopup(x, y);
+
+        addScore();
+
+        happyCharacter();
+
+        const delay =
+            Math.max(
+                50,
+                150 / ballSpeed
+            );
+
+        const timeoutId =
+            setTimeout(function () {
+
+                if (!gameEnded) {
+                    moveBall();
+                }
+
+            }, delay);
+
+        moveTimeouts.push(timeoutId);
+    }
+
+
+    /*
+     * clickだけを使用することで、
+     * touchstart + clickによる二重加算を防ぐ。
+     */
+    ball.addEventListener(
+        "click",
+        handleBallHit
+    );
+
+
+    /* =========================================================
+       ゲーム終了
+       ========================================================= */
+
+    function endGame() {
+
+        if (gameEnded) {
+            return;
+        }
+
+        gameEnded = true;
+
+        clearInterval(timer);
+        clearInterval(autoMoveTimer);
+
+        timer = null;
+        autoMoveTimer = null;
+
+        moveTimeouts.forEach(function (id) {
+            clearTimeout(id);
+        });
+
+        moveTimeouts = [];
+
+        ball.style.display = "none";
+
+        if (backButton) {
+            backButton.style.pointerEvents = "none";
+            backButton.style.opacity = "0.4";
+        }
+
+        const finalScoreValue =
+            Math.round(score);
+
+        let resultImg;
+        let resultMsg;
+
+        if (finalScoreValue >= 15) {
+
+            resultImg = happyImage;
+            resultMsg =
+                "たくさんつかまえたよ！さいこう！";
+
+        } else if (finalScoreValue >= 10) {
+
+            resultImg = normalImage;
+            resultMsg =
+                "もうすこしでもっとうまくなれそう！";
+
+        } else {
+
+            resultImg = damageImage;
+            resultMsg =
+                "むずかしかったなあ…またやってみよう";
+        }
+
+        showResultFeedback(
+            resultImg,
+            resultMsg
+        );
+
+        gameOver.style.display = "flex";
+
+        finalScore.textContent =
+            finalScoreValue;
+
+                setTimeout(function () {
+
+            submitMinigameResult(
+                finalScoreValue,
+                0,
+                "fail"
+            );
+
+        }, 5000);
+    }
+
+
+    /* =========================================================
+       制限時間
+       ========================================================= */
+
+    function startTimer() {
+
+        clearInterval(timer);
+
+        timer = setInterval(function () {
+
+            if (gameEnded) {
+                clearInterval(timer);
+                return;
+            }
+
+            time--;
+
+            timeDisplay.textContent =
+                Math.max(time, 0);
+
+            if (time <= 0) {
+                endGame();
+            }
+
+        }, 1000);
+    }
+
+
+    /* =========================================================
+       ゲーム開始
+       ========================================================= */
+
+    startCountdown(function () {
+
+        if (gameEnded) {
+            return;
+        }
+
+        moveBall();
+
+        clearInterval(autoMoveTimer);
+
+        autoMoveTimer =
+            setInterval(
+                moveBall,
+                spawnInterval
+            );
+
+        startTimer();
+    });
+
+})();
+
+{% endblock %}

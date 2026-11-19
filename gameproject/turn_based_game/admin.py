@@ -1,4 +1,5 @@
 from django.contrib import admin
+from django.utils import timezone
 from .models import SaveData, ActionLog, PlaySession, ClearLog
 
 
@@ -17,40 +18,57 @@ def format_duration(seconds):
 class PlaySessionAdmin(admin.ModelAdmin):
 
     list_display = (
-        'user', 'game_round', 'start_text', 'end_text',
-        'duration_text', 'logged_out_text', 'page_views',
+        'user',
+        'game_round',
+        'start_text',
+        'end_text',
+        'duration_text',
+        'logged_out_text',
+        'page_views_text',
     )
+
     list_filter = ('user', 'game_round')
     search_fields = ('user__username',)
     ordering = ('-started_at',)
-    date_hierarchy = 'started_at'          # 日付で絞り込める
+    date_hierarchy = 'started_at'
 
     readonly_fields = (
-        'user', 'game_round', 'started_at', 'last_seen_at',
-        'logged_out_at', 'page_views',
+        'user',
+        'game_round',
+        'started_at',
+        'last_seen_at',
+        'logged_out_at',
+        'page_views',
     )
 
     @admin.display(description='プレイ開始', ordering='started_at')
     def start_text(self, obj):
-        from django.utils import timezone
-        return timezone.localtime(obj.started_at).strftime('%Y年%m月%d日 %H:%M:%S')
+        return timezone.localtime(
+            obj.started_at
+        ).strftime('%Y/%m/%d %H:%M:%S')
 
-    @admin.display(description='プレイ終了', ordering='last_seen_at')
+    @admin.display(description='プレイ終了（最終通信）', ordering='last_seen_at')
     def end_text(self, obj):
-        from django.utils import timezone
-        return timezone.localtime(obj.last_seen_at).strftime('%H:%M:%S')
+        return timezone.localtime(
+            obj.last_seen_at
+        ).strftime('%Y/%m/%d %H:%M:%S')
 
     @admin.display(description='プレイ時間')
     def duration_text(self, obj):
         return format_duration(obj.duration_seconds())
 
-    @admin.display(description='ログアウト')
+    @admin.display(description='セッション終了時刻', ordering='logged_out_at')
     def logged_out_text(self, obj):
-        from django.utils import timezone
         if obj.logged_out_at is None:
             return '（未記録）'
-        return timezone.localtime(obj.logged_out_at).strftime('%H:%M:%S')
 
+        return timezone.localtime(
+            obj.logged_out_at
+        ).strftime('%Y/%m/%d %H:%M:%S')
+
+    @admin.display(description='画面表示回数', ordering='page_views')
+    def page_views_text(self, obj):
+        return obj.page_views
 
 @admin.register(ClearLog)
 class ClearLogAdmin(admin.ModelAdmin):

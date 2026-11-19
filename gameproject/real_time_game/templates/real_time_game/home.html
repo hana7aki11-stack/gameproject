@@ -1,0 +1,2618 @@
+{% load static l10n %}
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>リアルタイム型育成ゲーム</title>
+    <style>
+
+        body {
+            font-family: sans-serif;
+            text-align: center;
+        }
+
+     /* チュートリアル */
+.tutorial-banner{
+    max-width:500px; margin:10px auto; padding:12px 16px;
+    background:#fff8e1; border:2px solid #f0d98c; border-radius:12px;
+    font-size:16px; text-align:left; line-height:1.6;
+}
+.tutorial-highlight{
+    outline:3px solid #ffb300;
+    animation:pulse 1s infinite;
+}
+@keyframes pulse{ 0%,100%{ transform:scale(1); } 50%{ transform:scale(1.06); } }
+
+/* ポップアップ（イントロ・アイテム獲得） */
+.modal-bg{
+    position:fixed; top:0; left:0; width:100%; height:100%;
+    background:rgba(0,0,0,0.6);
+    display:flex; align-items:center; justify-content:center;
+    z-index:1000;
+}
+.modal-box{
+    background:#fff; border-radius:16px; padding:20px;
+    max-width:340px; width:85%; text-align:center; box-sizing:border-box;
+}
+
+/* NEWマーク */
+.new-badge{
+    background:#e53935; color:#fff; font-size:12px;
+    border-radius:8px; padding:2px 6px; margin-left:6px;
+}
+
+
+/* スマホ縦画面 */
+@media (max-width: 600px){
+
+    /* 画面全体を中央揃え */
+    body {
+        text-align: center;
+        overflow-x: hidden;
+    }
+
+    h1 {
+        font-size: 22px;
+        text-align: center;
+    }
+
+    /* 日付・時刻・就寝時間 */
+    body > div {
+        margin-left: auto;
+        margin-right: auto;
+    }
+
+    /* パラメータ */
+    .status-panel {
+    width: min(600px, calc(100vw - 16px));
+    box-sizing: border-box;
+    margin: 0 auto 12px;
+    padding: 8px;
+    gap: 6px;
+}
+
+    .status-item {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .status-item span {
+        width: 52px;
+        flex-shrink: 0;
+        font-size: 13px;
+    }
+
+    .bar-bg {
+        height: 12px;
+    }
+
+    /* 部屋・キャラクター */
+    #room-wrap {
+        margin-left: auto !important;
+        margin-right: auto !important;
+    }
+
+    /* 行動ボタン */
+    .action-button {
+        display: block;
+        width: 92%;
+        max-width: 450px;
+        min-width: 0;
+        margin: 6px auto;
+        padding: 16px 10px;
+        font-size: 22px;
+        box-sizing: border-box;
+    }
+
+    /* ごはん・あそぶ等のカード */
+    form {
+        text-align: center;
+    }
+
+    .action-card {
+        display: inline-block;
+        width: 42%;
+        margin: 4px;
+        padding: 8px;
+        box-sizing: border-box;
+        vertical-align: top;
+    }
+
+    .sub-action-button {
+        min-width: 0;
+        padding: 12px 4px;
+        font-size: 16px;
+        box-sizing: border-box;
+    }
+}
+
+
+.event-message {
+    position: relative;
+    margin-bottom: 8px;
+    padding: 8px 14px;
+    background: rgba(0,0,0,0.75);
+    color: white;
+    border-radius: 12px;
+    font-size: 16px;
+    white-space: nowrap;
+
+    animation: popMessage 2.5s ease-out forwards;
+}
+
+@keyframes popMessage {
+  0%   { opacity: 0; transform: translateY(-10px); }
+  15%  { opacity: 1; transform: translateY(0px); }
+  80%  { opacity: 1; }
+  100% { opacity: 0; transform: translateY(-10px); }
+}
+
+        .action-card {
+    display: inline-block;
+
+    width: 180px;
+
+    margin: 10px;
+    padding: 12px;
+
+    vertical-align: top;
+
+    background-color: #fafafa;
+
+    border: 1px solid #ddd;
+    border-radius: 15px;
+
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.action-info {
+    margin-top: 10px;
+
+    text-align: left;
+
+    font-size: 14px;
+    line-height: 1.8;
+}
+
+.action-info p {
+    margin: 4px 0;
+}
+
+.up {
+    color: #4caf50;
+    font-weight: bold;
+}
+
+.down {
+    color: #f44336;
+    font-weight: bold;
+}
+
+
+
+        .action-button {
+            font-size: 24px;
+            padding: 15px 30px;
+            margin: 10px;
+            border-radius: 10px;
+            cursor: pointer;
+            min-width: 160px;
+        }
+
+        .sub-action-button {
+    font-size: 18px;
+    padding: 10px 20px;
+    margin: 8px;
+    border-radius: 10px;
+    cursor: pointer;
+    min-width: 120px;
+
+    background-color: #f5f5f5;
+    color: #333;
+    border: 1px solid #ccc;
+}
+
+        .sub-action-button:hover {
+    background-color: #e8e8e8;
+}
+
+        .sub-action-button:disabled {
+    background-color: #dddddd;
+    color: #888888;
+    cursor: not-allowed;
+}
+
+        .parameter-box {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        @keyframes floatCharacter {
+  0%   { transform: translateY(0px); }
+  50%  { transform: translateY(-10px); }
+  100% { transform: translateY(0px); }
+}
+
+@keyframes happyBounce {
+  0%   { transform: translateY(0px); }
+  50%  { transform: translateY(-20px); }
+  100% { transform: translateY(0px); }
+}
+
+@keyframes tiredMove {
+  0%   { transform: translateY(0px); }
+  50%  { transform: translateY(-2px); }
+  100% { transform: translateY(0px); }
+}
+
+@keyframes hungryShake {
+  0%   { transform: translateX(-2px); }
+  25%  { transform: translateX(2px); }
+  50%  { transform: translateX(-2px); }
+  75%  { transform: translateX(2px); }
+  100% { transform: translateX(-2px); }
+}
+
+@keyframes fullMove {
+  0%   { transform: translateY(0px); }
+  50%  { transform: translateY(-4px); }
+  100% { transform: translateY(0px); }
+}
+
+@keyframes eatCharacter {
+  0%   { transform: scaleY(1); }
+  25%  { transform: scaleY(0.85); }
+  50%  { transform: scaleY(1); }
+  75%  { transform: scaleY(0.85); }
+  100% { transform: scaleY(1); }
+}
+
+
+        @keyframes foodAppear {
+
+    0% {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+
+    15% {
+        opacity: 1;
+        transform: translateY(0px);
+    }
+
+    85% {
+        opacity: 1;
+    }
+
+    100% {
+        opacity: 0;
+        transform: translateY(-20px);
+        visibility: hidden;
+    }
+}
+
+        @keyframes bounceBall {
+
+    0% {
+        transform: translateY(0px);
+    }
+
+    50% {
+        transform: translateY(-20px);
+    }
+
+    100% {
+        transform: translateY(0px);
+    }
+}
+
+
+        .auth-link {
+    display: inline-block;
+    padding: 10px 20px;
+    border-radius: 10px;
+    background: #f5f5f5;
+    border: 1px solid #ccc;
+    text-decoration: none;
+    color: #333;
+}
+
+       .status-panel {
+    width: min(600px, calc(100vw - 16px));
+    margin: 0 auto 20px;
+    padding: 12px;
+    box-sizing: border-box;
+
+    background: #ffffffcc;
+    border-radius: 15px;
+
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.status-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.status-item span {
+    width: 55px;
+    font-size: 14px;
+    font-weight: bold;
+}
+
+.bar-bg {
+    flex: 1;
+    height: 14px;
+
+    background: #e0e0e0;
+    border-radius: 999px;
+
+    overflow: hidden;
+}
+
+
+.bar-fill {
+    height: 100%;
+    border-radius: 999px;
+
+    transition:
+        width 0.4s ease,
+        background-color 0.4s ease;
+}
+
+.bar-high {
+    background: #4caf50;
+}
+
+.bar-middle {
+    background: #ffc107;
+}
+
+.bar-low {
+    background: #f44336;
+}
+
+
+
+body { margin: 8px; }
+.action-button:disabled { cursor: not-allowed; }
+/* メインの行動ボタン：ターン制と同じ青色 */
+.action-button {
+    appearance: none;
+    -webkit-appearance: none;
+
+    background-color: #0d8bff;
+    color: #ffffff;
+    border: 2px solid #0d8bff;
+    border-radius: 10px;
+
+    font-family: inherit;
+    font-weight: normal;
+    text-align: center;
+
+    cursor: pointer;
+}
+
+/* 操作できないとき */
+.action-button:disabled {
+    background-color: #efefef;
+    color: #888888;
+    border-color: #bbbbbb;
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+.notice { max-width: 540px; box-sizing: border-box; margin: 12px auto; padding: 12px; border-radius: 12px; background: #fff8e1; }
+@media (max-width:600px) {
+ .action-button { display:block; width:92%; min-width:0; margin:6px auto; padding:16px 10px; font-size:22px; }
+ .action-card { width:42%; box-sizing:border-box; margin:4px; padding:8px; }
+ .sub-action-button { min-width:0; max-width:100%; padding:12px 4px; font-size:16px; margin:4px 0; }
+}
+
+         /* ログアウト・リセットボタン */
+
+.account-actions {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin: 20px auto 30px;
+}
+
+.account-actions form {
+    margin: 0;
+}
+
+.account-actions button {
+    font-size: 14px;
+    padding: 10px 20px;
+    border-radius: 10px;
+    border: 1px solid #ccc;
+    background: #f5f5f5;
+    cursor: pointer;
+}
+
+.account-actions .reset-button {
+    color: #c0392b;
+}
+
+/* 就寝時刻の設定 */
+
+.bedtime-settings {
+    margin-top: 12px;
+    font-size: 14px;
+}
+
+.bedtime-settings select {
+    padding: 6px 12px;
+    font-size: 16px;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+}
+
+.bedtime-settings button {
+    padding: 8px 16px;
+    font-size: 14px;
+    font-weight: bold;
+
+    background-color: #4caf50;
+    color: white;
+
+    border: 2px solid #388e3c;
+    border-radius: 8px;
+
+    cursor: pointer;
+    opacity: 1;
+}
+
+.bedtime-settings button:disabled {
+    background-color: #dddddd;
+    color: #888888;
+    border-color: #bbbbbb;
+    cursor: not-allowed;
+}
+
+/* 睡眠中のキャラクター */
+
+@keyframes sleepCharacter {
+    0%, 100% {
+        transform: scaleY(1);
+    }
+    50% {
+        transform: scaleY(0.97);
+    }
+}
+
+/* 睡眠中のZzz表示 */
+
+.sleep-symbol {
+    position: absolute;
+    top: 0;
+    right: -20px;
+    color: #ffffff;
+    font-size: 26px;
+    font-weight: bold;
+    text-shadow: 1px 1px 4px #667799;
+    pointer-events: none;
+    animation: sleepSymbol 3s ease-in-out infinite;
+    z-index: 40;
+}
+
+@keyframes sleepSymbol {
+    0% {
+        opacity: 0;
+        transform: translateY(0);
+    }
+    30% {
+        opacity: 1;
+    }
+    70% {
+        opacity: 1;
+    }
+    100% {
+        opacity: 0;
+        transform: translateY(-25px);
+    }
+}
+
+/* =========================
+   シッター機能
+   ========================= */
+
+.sitter-panel {
+    width: min(540px, calc(100vw - 16px));
+    box-sizing: border-box;
+    margin: 15px auto;
+    padding: 16px;
+
+    background: #edf5f8;
+    border: 1px solid #c9dce5;
+    border-radius: 12px;
+
+    font-size: 14px;
+    line-height: 1.6;
+}
+
+.sitter-panel h3 {
+    margin: 0 0 8px;
+    font-size: 18px;
+}
+
+.sitter-panel p {
+    margin: 6px 0;
+}
+
+.sitter-panel button {
+    padding: 12px 20px;
+    margin: 10px 0;
+
+    font-size: 16px;
+    border-radius: 10px;
+    border: 1px solid #b7cbd5;
+    background: #ffffff;
+    color: #333;
+
+    cursor: pointer;
+}
+
+.sitter-panel button:disabled {
+    background: #dddddd;
+    color: #888888;
+    cursor: not-allowed;
+}
+
+.sitter-panel.sitter-active {
+    background: #fff5e5;
+    border-color: #ead4af;
+}
+
+/* =========================
+   家具・持ち物一覧
+   ========================= */
+
+#room {
+    overflow: hidden;
+}
+
+.room-furniture {
+    position: absolute;
+    pointer-events: none;
+    z-index: 10;
+}
+
+.inventory-panel {
+    width: min(600px, calc(100vw - 16px));
+    box-sizing: border-box;
+    margin: 20px auto;
+    padding: 16px;
+    background: #fafafa;
+    border: 1px solid #ddd;
+    border-radius: 15px;
+}
+
+.inventory-panel h2 {
+    margin-top: 0;
+}
+
+.inventory-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+    margin: 15px 0;
+}
+
+.inventory-card {
+    position: relative;
+    min-width: 0;
+    padding: 10px;
+    box-sizing: border-box;
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 12px;
+}
+
+.inventory-card img {
+    display: block;
+    width: 100%;
+    height: 100px;
+    object-fit: contain;
+    margin: 0 auto 8px;
+}
+
+.inventory-name {
+    font-size: 14px;
+    font-weight: bold;
+    margin: 8px 0;
+    overflow-wrap: anywhere;
+}
+
+.inventory-button {
+    padding: 8px 12px;
+    margin: 4px;
+    font-size: 14px;
+    background: #f5f5f5;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    color: #333;
+    cursor: pointer;
+}
+
+.inventory-button:disabled {
+    background: #ddd;
+    color: #888;
+    cursor: not-allowed;
+}
+
+.inventory-status {
+    font-size: 12px;
+    color: #62916a;
+    margin: 6px 0;
+}
+
+.collection-bar {
+    height: 12px;
+    background: #e0e0e0;
+    border-radius: 999px;
+    overflow: hidden;
+    margin: 10px auto;
+}
+
+.collection-fill {
+    height: 100%;
+    background: #8abd91;
+    border-radius: 999px;
+}
+
+@media (max-width: 600px) {
+    .inventory-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .inventory-card {
+        padding: 8px;
+    }
+
+    .inventory-card img {
+        height: 90px;
+    }
+}
+
+</style>
+
+</head>
+<body>
+<h1>リアルタイム型育成ゲーム</h1>
+<!-- =========================
+     ゲームイントロ
+     ========================= -->
+
+{% if save_data.status == 'playing' and save_data.tutorial_step == 0 %}
+
+<div class="modal-bg" id="intro-modal">
+
+    <div class="modal-box">
+
+        <p id="intro-text"
+           style="min-height:100px;
+                  line-height:1.8;
+                  white-space:pre-line;">
+        </p>
+
+        <p id="intro-dots"
+           style="color:#888;">
+        </p>
+
+        <form method="post"
+              action="{% url 'real_time_game:finish_intro' %}"
+              id="intro-form">
+
+            {% csrf_token %}
+
+            <input type="hidden"
+                   name="game_round"
+                   value="{{ save_data.game_round }}">
+
+            <button type="button"
+                    id="intro-next"
+                    class="sub-action-button">
+
+                つぎへ
+
+            </button>
+
+        </form>
+
+    </div>
+
+</div>
+
+{% endif %}
+
+<!-- =========================
+     リアルタイム型の追加説明
+     ========================= -->
+
+{% if in_extra_intro %}
+
+<div class="modal-bg" id="extra-intro-modal">
+
+    <div class="modal-box"
+         style="max-height:90vh; overflow-y:auto;">
+
+        <p id="extra-intro-caption"
+           style="font-size:12px; color:#888;">
+            リアルタイム型の追加説明
+        </p>
+
+        <h3 id="extra-intro-title"></h3>
+
+        <p id="extra-intro-text"
+           style="min-height:130px;
+                  line-height:1.8;
+                  white-space:pre-line;">
+        </p>
+
+        <p id="extra-intro-dots"
+           style="color:#888;">
+        </p>
+
+        <form method="post"
+              action="{% url 'real_time_game:finish_extra_intro' %}"
+              id="extra-intro-form">
+
+            {% csrf_token %}
+
+            <input type="hidden"
+                   name="game_round"
+                   value="{{ save_data.game_round }}">
+
+            <button type="button"
+                    id="extra-intro-back"
+                    class="sub-action-button">
+
+                戻る
+
+            </button>
+
+            <button type="button"
+                    id="extra-intro-next"
+                    class="sub-action-button">
+
+                つぎへ
+
+            </button>
+
+        </form>
+
+    </div>
+
+</div>
+
+{% endif %}
+
+<!-- =========================
+     アイテム獲得ポップアップ
+     ========================= -->
+
+{% for message in messages %}
+
+    {% if "item_get" in message.extra_tags %}
+
+        {% for item in items_display %}
+
+            {% if item.id == message.message %}
+
+                <div class="modal-bg"
+                     id="item-modal"
+                     style="z-index:1100;">
+
+                    <div class="modal-box">
+
+                        <div style="font-size:36px;">🎁</div>
+
+                        <h3>新しいアイテムをGET！</h3>
+
+                        <img src="{% static item.image %}"
+                             width="120"
+                             alt="{{ item.name }}">
+
+                        <p>
+                            「{{ item.name }}」を手に入れました！
+                            <br>
+                            「持ち物一覧」から飾れます。
+                        </p>
+
+                        <button type="button"
+                                class="sub-action-button"
+                                onclick="document.getElementById('item-modal').style.display='none'">
+                            OK
+                        </button>
+
+                    </div>
+
+                </div>
+
+            {% endif %}
+
+        {% endfor %}
+
+    {% endif %}
+
+{% endfor %}
+
+<div id="clock-panel"
+     style="display:inline-block;
+            padding:12px 24px;
+            background:#ffffffcc;
+            border-radius:12px;
+            margin-bottom:20px;">
+
+    <div id="current-date"
+         style="font-size:24px;font-weight:bold;">
+        {{ current_time|date:"n月j日" }}
+    </div>
+
+    <div id="current-clock"
+         style="font-size:18px;color:#666;">
+        {{ current_time|date:"H:i" }}
+    </div>
+
+    <div id="bedtime-display">
+        就寝時刻：{{ save_data.bedtime|time:"H:i" }}
+    </div>
+
+    <div id="wakeup-display">
+        起床時刻：{{ wakeup_time|time:"H:i" }}
+    </div>
+
+{% if save_data.status == 'playing' and not in_tutorial %}
+
+    <form method="post"
+          action="{% url 'real_time_game:set_bedtime' %}"
+          class="bedtime-settings">
+
+        {% csrf_token %}
+
+        <label for="bedtime">
+            就寝時刻の設定
+        </label>
+
+        <br>
+
+        <select name="bedtime"
+                id="bedtime"
+                {% if active_minigame %}disabled{% endif %}>
+
+            {% for option in bedtime_options %}
+
+                <option value="{{ option }}"
+                    {% if option == save_data.bedtime|time:"H:i" %}
+                        selected
+                    {% endif %}>
+
+                    {{ option }}
+
+                </option>
+
+            {% endfor %}
+
+        </select>
+
+        <button type="submit"
+                {% if active_minigame %}disabled{% endif %}>
+
+            変更する
+
+        </button>
+
+    </form>
+
+{% endif %}
+</div>
+<div style="
+    display:flex;
+    justify-content:center;
+    gap:10px;
+    margin-bottom:20px;
+">
+
+    <span>{{ user.username }} さん</span>
+
+    <form action="{% url 'real_time_game:logout_game' %}" method="post">
+        {% csrf_token %}
+        <button type="submit">
+            ログアウト
+        </button>
+    </form>
+
+</div>
+{% for message in messages %}
+    {% if "character_event" not in message.extra_tags and "tutorial_complete" not in message.extra_tags and "item_get" not in message.extra_tags %}
+        <div class="notice">{{ message }}</div>
+    {% endif %}
+{% endfor %}
+<div id="status-panel" class="status-panel">
+
+    <div class="status-item">
+        <span>元気</span>
+
+        <div class="bar-bg">
+            <div class="bar-fill
+    {% if energy <= 30 %}
+        bar-low
+    {% elif energy <= 60 %}
+        bar-middle
+    {% else %}
+        bar-high
+    {% endif %}"
+    style="width: {{ energy|unlocalize }}%;">
+</div>
+        </div>
+    </div>
+
+    <div class="status-item">
+        <span>満腹度</span>
+
+        <div class="bar-bg">
+            <div class="bar-fill
+    {% if fullness <= 30 %}
+        bar-low
+    {% elif fullness <= 60 %}
+        bar-middle
+    {% else %}
+        bar-high
+    {% endif %}"
+    style="width: {{ fullness|unlocalize }}%;">
+</div>
+        </div>
+    </div>
+
+    <div class="status-item">
+        <span>満足度</span>
+
+        <div class="bar-bg">
+            <div class="bar-fill
+    {% if satisfaction <= 30 %}
+        bar-low
+    {% elif satisfaction <= 60 %}
+        bar-middle
+    {% else %}
+        bar-high
+    {% endif %}"
+    style="width: {{ satisfaction|unlocalize }}%;">
+</div>
+        </div>
+    </div>
+
+</div>
+
+
+<div id="room-wrap">
+
+    <div id="room"
+         style="position:relative;
+                width:600px;
+                height:400px;
+                background-image:url('{% static background_image %}');
+                background-size:cover;
+                background-position:center;">
+
+                <!-- 配置済みの家具を表示 -->
+
+        {% for item in placed_item_images %}
+
+            <img class="room-furniture"
+                 src="{% static item.image %}"
+                 width="{{ item.width }}"
+                 alt="{{ item.name }}"
+                 style="
+                    top:{{ item.top }};
+                    bottom:{{ item.bottom }};
+                    left:{{ item.left }};
+                    right:{{ item.right }};
+                    transform:{{ item.transform }};
+                 ">
+
+        {% endfor %}
+
+        <!-- シッター利用中でない場合のみ表示 -->
+        {% if not sitting %}
+
+            <div id="character-wrap"
+                 style="position:absolute;
+                        left:50%;
+                        bottom:80px;
+                        transform:translateX(-50%);
+                        display:flex;
+                        flex-direction:column;
+                        align-items:center;
+                        z-index:20;">
+
+                {% for message in messages %}
+
+                    {% if "character_event" in message.extra_tags %}
+
+                        <div class="event-message"
+                             style="z-index:30;"
+                             onanimationend="this.remove()">
+
+                            {{ message }}
+
+                        </div>
+
+                    {% endif %}
+
+                {% endfor %}
+
+                <div id="char-speech"
+                     class="event-message"
+                     style="display:none;z-index:30;">
+                </div>
+
+                {% if sleeping %}
+
+                    <div class="sleep-symbol">
+                        Zzz…
+                    </div>
+
+                {% endif %}
+
+                <img id="room-character"
+                     src="{% static character_image %}"
+                     width="220"
+                     onclick="tapCharacter()"
+                     style="display:block;
+                            cursor:pointer;
+                            position:relative;
+                            z-index:20;
+                            animation:{{ character_animation }};"
+                     alt="キャラクター">
+
+            </div>
+
+        {% endif %}
+
+    </div>
+
+</div>
+
+
+<div id="game-action-area">
+
+{% if save_data.status == 'not_started' %}
+ <form method="post" action="{% url 'real_time_game:start_test_game' %}">{% csrf_token %}<button class="action-button" type="submit">テスト育成開始</button></form>
+{% elif save_data.status == 'playing' %}
+
+    <!-- 睡眠中のお知らせ -->
+    {% if sleeping and not sitting %}
+
+        <div class="notice"
+             style="background:#edf0fa;">
+
+            🌙 キャラクターは睡眠中です。
+
+            <br>
+
+            {{ wakeup_time|time:"H:i" }}に起きます。
+
+            <br>
+
+            <small>
+                睡眠中は元気が回復します。
+            </small>
+
+        </div>
+
+    {% endif %}
+
+
+
+    <!-- =========================
+         シッター機能
+         ========================= -->
+     {% if not in_tutorial %}
+
+    <div class="sitter-panel {% if sitting %}sitter-active{% endif %}">
+
+        <h3>シッター</h3>
+
+        <p>利用可能時間：6:00～19:00</p>
+
+        <p>
+            本日の利用回数：
+            {% if sitter_used_today %}
+                1 / 1回
+            {% else %}
+                0 / 1回
+            {% endif %}
+        </p>
+
+
+        {% if sitting %}
+
+            <!-- シッター利用中 -->
+
+            <p>
+                <strong>
+                    現在、シッターに預けています。
+                </strong>
+            </p>
+
+            <p>
+                19:00になると自動的に帰ってきます。
+            </p>
+
+            <p>
+                それまでは、いつでもお迎えに行くことができます。
+            </p>
+
+            <form method="post"
+                  action="{% url 'real_time_game:pickup_sitter' %}"
+                  onsubmit="return confirm('お迎えに行くと、本日はもうシッターに預けることができません。\n本当にお迎えに行きますか？');">
+
+                {% csrf_token %}
+
+                <button type="submit">
+                    お迎えに行く
+                </button>
+
+            </form>
+
+
+        {% elif can_use_sitter %}
+
+            <!-- シッター利用可能 -->
+
+            <p>
+                お世話ができないときに、
+                キャラクターを預けることができます。
+            </p>
+
+            <p>
+                お預かり中はパラメータの低下や
+                成長が止まります。
+            </p>
+
+            <form method="post"
+                  action="{% url 'real_time_game:deposit_sitter' %}"
+                  onsubmit="return confirm('シッターを利用できるのは1日1回までです。\n本当にシッターに預けますか？');">
+
+                {% csrf_token %}
+
+                <button type="submit">
+                    シッターに預ける
+                </button>
+
+            </form>
+
+
+        {% elif sitter_used_today %}
+
+            <!-- 本日利用済み -->
+
+            <p>
+                本日のシッター利用は終了しました。
+            </p>
+
+            <button type="button" disabled>
+                本日は利用済み
+            </button>
+
+
+        {% elif not sitter_business_hours %}
+
+            <!-- 利用時間外 -->
+
+            <p>
+                現在は利用可能時間外です。
+            </p>
+
+            <button type="button" disabled>
+                利用時間外
+            </button>
+
+
+        {% elif active_minigame %}
+
+            <!-- ミニゲーム中 -->
+
+            <p>
+                ミニゲーム中は利用できません。
+            </p>
+
+            <button type="button" disabled>
+                シッターに預ける
+            </button>
+
+        {% endif %}
+
+    </div>
+
+    {% endif %}
+
+    <!-- シッター機能ここまで -->
+ {% if active_minigame %}
+ <div class="notice" style="background:#fff4e5;border:2px solid #ffb74d;">
+  <h3>プレイ中のミニゲームがあります</h3>
+  <p>{{ active_minigame.get_action_display }} が終了していません。</p>
+  <p>新しくミニゲームを始めるには中断してください。</p>
+  <p>※消費したストックは戻りません。</p>
+  <form method="post" action="{% url 'real_time_game:abandon_minigame' %}" onsubmit="return confirm('ミニゲームを中断しますか？ 消費したストックは戻りません。');">
+   {% csrf_token %}<input type="hidden" name="token" value="{{ active_minigame.token }}"><button class="sub-action-button" type="submit">ミニゲームを中断する</button>
+  </form>
+ </div>
+ {% endif %}
+<h2>行動</h2>
+
+    {% if tutorial_text %}
+
+    <div class="tutorial-banner">
+
+        {% for line in tutorial_done_lines %}
+
+            <div style="color:#2e7d32;">
+                {{ line }}
+            </div>
+
+        {% endfor %}
+
+        <div style="white-space:pre-line; margin:8px 0;">
+            {{ tutorial_text }}
+        </div>
+
+        <form method="post"
+      action="{% url 'real_time_game:skip_tutorial' %}"
+      onsubmit="return confirm('チュートリアルをスキップしますか？');"
+      style="text-align:right; margin-top:6px;">
+
+            {% csrf_token %}
+
+            <input type="hidden"
+                   name="game_round"
+                   value="{{ save_data.game_round }}">
+
+            <button type="submit"
+                    {% if active_minigame %}disabled{% endif %}
+                    style="background:none;
+                           border:none;
+                           padding:0;
+                           margin:0;
+                           font-size:12px;
+                           color:#999;
+                           text-decoration:underline;
+                           cursor:pointer;">
+                スキップ
+            </button>
+
+        </form>
+
+    </div>
+
+{% endif %}
+
+<!-- ごはん・あそぶ -->
+<form method="get"
+      action="{% url 'real_time_game:home' %}">
+
+    <button class="action-button {% if in_tutorial and save_data.tutorial_step == 1 and menu != 'food' %}tutorial-highlight{% endif %}"
+            name="menu"
+            value="food"
+            {% if blocked or in_tutorial and save_data.tutorial_step != 1 %}
+                disabled
+            {% endif %}>
+
+        ごはん
+
+    </button>
+
+    <button class="action-button {% if in_tutorial and save_data.tutorial_step == 2 and menu != 'play' %}tutorial-highlight{% endif %}"
+            name="menu"
+            value="play"
+            {% if blocked or in_tutorial and save_data.tutorial_step != 2 %}
+                disabled
+            {% endif %}>
+
+        あそぶ
+
+    </button>
+
+</form>
+
+
+<!-- 休む -->
+<form method="post"
+      action="{% url 'real_time_game:rest' %}">
+
+    {% csrf_token %}
+
+    <button class="action-button {% if in_tutorial and save_data.tutorial_step == 3 %}tutorial-highlight{% endif %}"
+            type="submit"
+            {% if blocked or in_tutorial and save_data.tutorial_step != 3 or not in_tutorial and not save_data.stock_rest %}
+                disabled
+            {% endif %}>
+
+        休む
+
+    </button>
+
+</form>
+
+<!-- 休むストック -->
+<div style="font-size:14px; margin-bottom:15px;">
+
+    <div>
+        ストック：{{ save_data.stock_rest }} / 2
+    </div>
+
+    {% if save_data.stock_rest == 2 %}
+
+        <div style="color:#62916a;">
+            回復済み
+        </div>
+
+    {% elif rest_recovery_minutes != None %}
+
+        <div style="color:#777;">
+            あと{{ rest_recovery_minutes }}分で回復
+        </div>
+
+    {% else %}
+
+        <div style="color:#777;">
+            ストック回復待ち
+        </div>
+
+    {% endif %}
+
+</div>
+ {% if not blocked %}
+  {% if selected_game %}
+   <h3>{{ selected_game.title }}</h3>
+
+<p>
+    ストック：{{ selected_game.stock }} / 2
+</p>
+
+{% if selected_game.recovery_minutes != None %}
+
+    <p style="font-size:14px;color:#777;">
+        あと{{ selected_game.recovery_minutes }}分で回復
+    </p>
+
+{% endif %}
+   <form method="post" action="{% url selected_game.url_name %}">{% csrf_token %}
+    {% for level in difficulty_list %}<div class="action-card">
+     <button class="sub-action-button {% if in_tutorial and level.key == 'easy' %}tutorial-highlight{% endif %}"
+        type="submit"
+        name="difficulty"
+        value="{{ level.key }}"
+        {% if in_tutorial %}
+            {% if level.key != 'easy' %}
+                disabled
+            {% elif save_data.tutorial_step == 1 and selected_game.action == 'food' or save_data.tutorial_step == 2 and selected_game.action == 'dance' %}
+            {% else %}
+                disabled
+            {% endif %}
+        {% elif not level.unlocked or not selected_game.stock %}
+            disabled
+        {% endif %}>
+
+    {% if not level.unlocked %}🔒 {% endif %}
+    {{ level.label }}
+
+</button>
+    </div>{% endfor %}
+   </form>
+   <a href="?menu={{ menu }}">戻る</a>
+  {% elif minigames %}
+   {% for game in minigames %}<div class="action-card">
+
+    <form method="get"
+          action="{% url 'real_time_game:home' %}">
+
+        <input type="hidden"
+               name="menu"
+               value="{{ menu }}">
+
+        <button class="sub-action-button {% if in_tutorial and save_data.tutorial_step == 1 and game.action == 'food' or in_tutorial and save_data.tutorial_step == 2 and game.action == 'dance' %}tutorial-highlight{% endif %}"
+                name="game"
+                value="{{ game.action }}"
+                {% if in_tutorial %}
+                    {% if save_data.tutorial_step == 1 and game.action == 'food' or save_data.tutorial_step == 2 and game.action == 'dance' %}
+                    {% else %}
+                        disabled
+                    {% endif %}
+                {% elif not game.stock %}
+                    disabled
+                {% endif %}>
+
+            {{ game.title }}
+
+        </button>
+
+    </form>
+    <div class="action-info">
+
+    <p>
+        ストック：{{ game.stock }} / 2
+    </p>
+
+    {% if game.stock == 2 %}
+
+        <p style="color:#62916a;">
+            回復済み
+        </p>
+
+    {% elif game.recovery_minutes != None %}
+
+        <p style="color:#777;">
+            あと{{ game.recovery_minutes }}分で回復
+        </p>
+
+    {% else %}
+
+        <p style="color:#777;">
+            ストック回復待ち
+        </p>
+
+    {% endif %}
+
+</div>
+   </div>{% endfor %}
+  {% endif %}
+ {% endif %}
+{% elif save_data.status == 'cleared' %}
+
+    <h2>クリア！</h2>
+
+    <p>
+        最後まで育てることができました！
+    </p>
+
+    <form method="post"
+          action="{% url 'real_time_game:new_round' %}"
+          onsubmit="return confirm('新しい育成を始めますか？ 獲得した家具や壁紙は引き継がれます。');">
+
+        {% csrf_token %}
+
+        <input type="hidden"
+               name="game_round"
+               value="{{ save_data.game_round }}">
+
+        <button class="action-button"
+                type="submit">
+            新しい育成を始める
+        </button>
+
+    </form>
+
+{% elif save_data.status == 'game_over' %}
+
+    <h2>ゲームオーバー</h2>
+
+    <p>
+        体力がなくなってしまいました…
+    </p>
+
+    <form method="post"
+          action="{% url 'real_time_game:new_round' %}"
+          onsubmit="return confirm('新しい育成を始めますか？ 獲得した家具や壁紙は引き継がれます。');">
+
+        {% csrf_token %}
+
+        <input type="hidden"
+               name="game_round"
+               value="{{ save_data.game_round }}">
+
+        <button class="action-button"
+                type="submit">
+            新しい育成を始める
+        </button>
+
+    </form>
+
+{% endif %}
+
+</div>
+
+<!-- =========================
+     持ち物一覧
+     ========================= -->
+
+{% if save_data.has_started_game and not in_tutorial %}
+
+    <form method="get"
+          action="{% url 'real_time_game:home' %}">
+
+        <button class="action-button"
+                type="submit"
+                name="menu"
+                value="items">
+
+            持ち物一覧
+
+            {% if has_new_items %}
+                <span class="new-badge">NEW</span>
+            {% endif %}
+
+        </button>
+
+    </form>
+
+
+    {% if request.GET.menu == 'items' %}
+
+        <div class="inventory-panel">
+
+            <h2>持ち物一覧</h2>
+
+            <p>
+                所持数：{{ owned_count }} / {{ total_count }}
+            </p>
+
+            <p>
+                収集率：{{ collection_rate }}%
+            </p>
+
+            <div class="collection-bar">
+
+                <div class="collection-fill"
+                     style="width:{{ collection_rate }}%;">
+                </div>
+
+            </div>
+
+
+            <!-- =========================
+                 獲得済みの家具
+                 ========================= -->
+
+            <h3>家具</h3>
+
+            {% if not items_display %}
+
+                <p>
+                    まだアイテムを獲得していません。
+                </p>
+
+            {% endif %}
+
+            <div class="inventory-grid">
+
+                {% for item in items_display %}
+
+                    {% if not item.is_wallpaper %}
+
+                        <div class="inventory-card">
+
+                            <img src="{% static item.image %}"
+                                 alt="{{ item.name }}">
+
+                            <div class="inventory-name">
+
+                                {{ item.name }}
+
+                                {% if item.is_new %}
+
+                                    <span class="new-badge">
+                                        NEW
+                                    </span>
+
+                                {% endif %}
+
+                            </div>
+
+
+                            {% if item.is_placed %}
+
+                                <div class="inventory-status">
+                                    配置中
+                                </div>
+
+                            {% endif %}
+
+
+                            <form method="post"
+                                  action="{% url 'real_time_game:manage_item' %}">
+
+                                {% csrf_token %}
+
+                                <input type="hidden"
+                                       name="item"
+                                       value="{{ item.id }}">
+
+
+                                {% if item.is_placed %}
+
+                                    <button class="inventory-button"
+                                            type="submit"
+                                            name="operation"
+                                            value="remove">
+
+                                        しまう
+
+                                    </button>
+
+                                {% else %}
+
+                                    <button class="inventory-button"
+                                            type="submit"
+                                            name="operation"
+                                            value="place">
+
+                                        配置する
+
+                                    </button>
+
+                                {% endif %}
+
+                            </form>
+
+                        </div>
+
+                    {% endif %}
+
+                {% endfor %}
+
+            </div>
+
+
+            <!-- =========================
+                 壁紙一覧
+                 ========================= -->
+
+            <h3>壁紙</h3>
+
+            <div class="inventory-grid">
+
+
+                <!-- 初期の壁紙 -->
+
+                <div class="inventory-card">
+
+                    <img src="{% static 'images/room-default-morning.png' %}"
+                         alt="初期の壁紙">
+
+                    <div class="inventory-name">
+                        初期の壁紙
+                    </div>
+
+                    <form method="post"
+                          action="{% url 'real_time_game:manage_item' %}">
+
+                        {% csrf_token %}
+
+                        <input type="hidden"
+                               name="item"
+                               value="room-default">
+
+                        <button class="inventory-button"
+                                type="submit"
+                                name="operation"
+                                value="wallpaper"
+                                {% if save_data.room_wallpaper == 'room-default' %}
+                                    disabled
+                                {% endif %}>
+
+                            {% if save_data.room_wallpaper == 'room-default' %}
+                                使用中
+                            {% else %}
+                                変更する
+                            {% endif %}
+
+                        </button>
+
+                    </form>
+
+                </div>
+
+
+                <!-- 獲得済みの壁紙 -->
+
+                {% for item in items_display %}
+
+                    {% if item.is_wallpaper %}
+
+                        <div class="inventory-card">
+
+                            {% with wallpaper_image="images/"|add:item.id|add:"-morning.png" %}
+
+                                <img src="{% static wallpaper_image %}"
+                                     alt="{{ item.name }}">
+
+                            {% endwith %}
+
+                            <div class="inventory-name">
+
+                                {{ item.name }}
+
+                                {% if item.is_new %}
+
+                                    <span class="new-badge">
+                                        NEW
+                                    </span>
+
+                                {% endif %}
+
+                            </div>
+
+                            <form method="post"
+                                  action="{% url 'real_time_game:manage_item' %}">
+
+                                {% csrf_token %}
+
+                                <input type="hidden"
+                                       name="item"
+                                       value="{{ item.id }}">
+
+                                <button class="inventory-button"
+                                        type="submit"
+                                        name="operation"
+                                        value="wallpaper"
+                                        {% if item.is_selected %}
+                                            disabled
+                                        {% endif %}>
+
+                                    {% if item.is_selected %}
+                                        使用中
+                                    {% else %}
+                                        変更する
+                                    {% endif %}
+
+                                </button>
+
+                            </form>
+
+                        </div>
+
+                    {% endif %}
+
+                {% endfor %}
+
+            </div>
+
+
+            <!-- NEWマークを消す -->
+
+            {% if has_new_items %}
+
+                <form method="post"
+                      action="{% url 'real_time_game:manage_item' %}">
+
+                    {% csrf_token %}
+
+                    <button class="inventory-button"
+                            type="submit"
+                            name="operation"
+                            value="mark_seen">
+
+                        NEWマークを消す
+
+                    </button>
+
+                </form>
+
+            {% endif %}
+
+
+            <!-- 持ち物一覧を閉じる -->
+
+            <p>
+
+                <a class="auth-link"
+                   href="{% url 'real_time_game:home' %}">
+
+                    閉じる
+
+                </a>
+
+            </p>
+
+        </div>
+
+    {% endif %}
+
+{% endif %}
+
+<!-- 持ち物一覧ここまで -->
+<p>
+    <a href="{% url 'real_time_game:home' %}">
+        最新の状態に更新
+    </a>
+</p>
+
+<!-- リセット -->
+<div class="account-actions">
+
+    <!-- リセット -->
+    {% if save_data.status != 'not_started' %}
+
+        <form method="post"
+              action="{% url 'real_time_game:reset_game' %}"
+              onsubmit="return confirm('ゲームをリセットしますか？\n現在の育成データと、獲得した家具・壁紙が削除されます。\nリセットしたデータは元に戻せません。');">
+
+            {% csrf_token %}
+
+            <input type="hidden"
+                   name="game_round"
+                   value="{{ save_data.game_round }}">
+
+            <button type="submit"
+                    class="reset-button">
+                リセット
+            </button>
+
+        </form>
+
+    {% endif %}
+
+</div>
+
+<!-- キャラクターの自動セリフの判定 -->
+
+<div id="auto-speech-state"
+     data-enabled="{% if save_data.status == 'playing' and not sleeping and not sitting %}true{% else %}false{% endif %}"
+     hidden>
+</div>
+
+{{ hint_list|json_script:"hint-data" }}
+
+<script>
+// 部屋を画面幅に合わせて縮小する
+function fitRoom() {
+    const wrap = document.getElementById("room-wrap");
+    const room = document.getElementById("room");
+    if (!wrap || !room) return;
+    const s = Math.min(1, (document.documentElement.clientWidth - 16) / 600);
+    room.style.transformOrigin = "top left";
+    room.style.transform = "scale(" + s + ")";
+    wrap.style.width = (600 * s) + "px";
+    wrap.style.height = (400 * s) + "px";
+    wrap.style.margin = "0 auto";
+}
+fitRoom();
+window.addEventListener("resize", fitRoom);
+
+// キャラクターのセリフを表示する
+let hintList = JSON.parse(
+    document.getElementById("hint-data").textContent
+);
+
+
+function say(text) {
+    const el = document.getElementById("char-speech");
+    if (!el) return;
+    el.style.display = "none";
+    el.textContent = text;
+    void el.offsetWidth;            // アニメーションを最初からやり直す
+    el.style.display = "block";
+    setTimeout(function () { el.style.display = "none"; }, 2600);
+}
+
+// キャラクターをタップしたとき
+function tapCharacter() {
+    if (!hintList || hintList.length === 0) return;
+    say(hintList[Math.floor(Math.random() * hintList.length)]);
+}
+
+
+// =========================
+// キャラクターの自動セリフ
+// =========================
+
+let autoSpeechEnabled =
+    {% if save_data.status == 'playing' and not sleeping and not sitting %}
+        true
+    {% else %}
+        false
+    {% endif %};
+
+setInterval(function () {
+
+    if (autoSpeechEnabled && !document.hidden) {
+        tapCharacter();
+    }
+
+}, 15000);
+
+
+// =========================
+// 画面の自動更新
+// =========================
+
+// 更新間隔：30秒
+const REFRESH_INTERVAL = 30000;
+
+let refreshing = false;
+let submittingForm = false;
+
+
+// フォーム送信中は自動更新を行わない
+document.addEventListener("submit", function (event) {
+
+    if (event.defaultPrevented) return;
+
+    submittingForm = true;
+
+});
+
+
+// ブラウザの戻るボタンへの対応
+window.addEventListener("pageshow", function () {
+
+    submittingForm = false;
+
+});
+
+
+// =========================
+// テキストの更新
+// =========================
+
+function updateText(newDocument, id) {
+
+    const current = document.getElementById(id);
+    const latest = newDocument.getElementById(id);
+
+    if (current && latest) {
+
+        if (current.textContent !== latest.textContent) {
+            current.textContent = latest.textContent;
+        }
+
+    }
+
+}
+
+
+// =========================
+// HTMLの比較
+// =========================
+
+function comparableHTML(element) {
+
+    const copy = element.cloneNode(true);
+
+    // CSRFトークンの違いだけでは
+    // 画面を更新しない
+    copy.querySelectorAll(
+        'input[name="csrfmiddlewaretoken"]'
+    ).forEach(function (input) {
+
+        input.removeAttribute("value");
+
+    });
+
+    // 一時的なセリフやメッセージは
+    // 比較の対象に含めない
+    copy.querySelectorAll(
+        ".event-message"
+    ).forEach(function (element) {
+
+        element.remove();
+
+    });
+
+    return copy.innerHTML;
+
+}
+
+
+// =========================
+// 必要な部分だけ更新
+// =========================
+
+function updateSection(newDocument, id) {
+
+    const current = document.getElementById(id);
+    const latest = newDocument.getElementById(id);
+
+    if (!current || !latest) return;
+
+    if (
+        comparableHTML(current)
+        !== comparableHTML(latest)
+    ) {
+
+        current.innerHTML = latest.innerHTML;
+
+    }
+
+}
+
+
+// =========================
+// キャラクターの更新
+// =========================
+
+function updateCharacter(newDocument) {
+
+    const currentWrap =
+        document.getElementById("character-wrap");
+
+    const latestWrap =
+        newDocument.getElementById("character-wrap");
+
+    const room = document.getElementById("room");
+
+    if (!room) return;
+
+
+    // シッターから帰宅した場合
+    if (!currentWrap && latestWrap) {
+
+        room.appendChild(
+            latestWrap.cloneNode(true)
+        );
+
+    }
+
+    // シッターに預けた場合
+    else if (currentWrap && !latestWrap) {
+
+        currentWrap.remove();
+
+    }
+
+    // キャラクターが表示されている場合
+    else if (currentWrap && latestWrap) {
+
+        const currentImage =
+            currentWrap.querySelector("#room-character");
+
+        const latestImage =
+            latestWrap.querySelector("#room-character");
+
+        if (currentImage && latestImage) {
+
+            const latestSrc =
+                latestImage.getAttribute("src");
+
+            // 画像が変化した場合のみ更新
+            if (
+                currentImage.getAttribute("src")
+                !== latestSrc
+            ) {
+
+                currentImage.setAttribute(
+                    "src", latestSrc
+                );
+
+            }
+
+            // アニメーションが変化した場合のみ更新
+            if (
+                currentImage.style.animation
+                !== latestImage.style.animation
+            ) {
+
+                currentImage.style.animation =
+                    latestImage.style.animation;
+
+            }
+
+        }
+
+
+        // 睡眠中のZzz表示
+        const currentSleep =
+            currentWrap.querySelector(".sleep-symbol");
+
+        const latestSleep =
+            latestWrap.querySelector(".sleep-symbol");
+
+        if (!currentSleep && latestSleep) {
+
+            currentWrap.insertBefore(
+                latestSleep.cloneNode(true),
+                currentImage
+            );
+
+        }
+
+        else if (currentSleep && !latestSleep) {
+
+            currentSleep.remove();
+
+        }
+
+    }
+
+}
+
+
+// =========================
+// 最新情報の取得
+// =========================
+
+async function refreshGame() {
+
+    // 非表示・通信中・フォーム送信中は更新しない
+    if (
+        document.hidden
+        || refreshing
+        || submittingForm
+    ) {
+        return;
+    }
+
+    refreshing = true;
+
+    try {
+
+        // 現在開いているメニューも維持する
+        const response = await fetch(
+            window.location.href,
+            {
+                method: "GET",
+                credentials: "same-origin",
+                cache: "no-store",
+
+                headers: {
+                    "X-Game-Auto-Refresh": "1"
+                }
+            }
+        );
+
+        // ログイン状態が切れていた場合
+        if (response.redirected) {
+
+            if (!submittingForm && !document.hidden) {
+                window.location.reload();
+            }
+
+            return;
+
+        }
+
+        if (!response.ok) return;
+
+        const html = await response.text();
+
+        // 通信中にフォームが送信された場合
+        if (submittingForm || document.hidden) {
+            return;
+        }
+
+        const newDocument =
+            new DOMParser().parseFromString(
+                html,
+                "text/html"
+            );
+
+
+        // 日付・時刻
+        updateText(newDocument, "current-date");
+        updateText(newDocument, "current-clock");
+        updateText(newDocument, "bedtime-display");
+        updateText(newDocument, "wakeup-display");
+
+
+        // パラメータ
+        const currentBars =
+            document.querySelectorAll(
+                "#status-panel .bar-fill"
+            );
+
+        const latestBars =
+            newDocument.querySelectorAll(
+                "#status-panel .bar-fill"
+            );
+
+        currentBars.forEach(function (bar, index) {
+
+            const latest = latestBars[index];
+
+            if (!latest) return;
+
+            bar.style.width = latest.style.width;
+            bar.className = latest.className;
+
+        });
+
+
+        // 背景画像
+        const room = document.getElementById("room");
+
+        const latestRoom =
+            newDocument.getElementById("room");
+
+        if (room && latestRoom) {
+
+            if (
+                room.style.backgroundImage
+                !== latestRoom.style.backgroundImage
+            ) {
+
+                room.style.backgroundImage =
+                    latestRoom.style.backgroundImage;
+
+            }
+
+        }
+
+
+        // キャラクター
+        updateCharacter(newDocument);
+
+
+        // セリフの内容
+        const latestHintData =
+            newDocument.getElementById("hint-data");
+
+        if (latestHintData) {
+
+            hintList = JSON.parse(
+                latestHintData.textContent
+            );
+
+        }
+
+
+        // 行動・睡眠・シッター・ストック
+        updateSection(
+            newDocument,
+            "game-action-area"
+        );
+
+
+        // 就寝時刻の設定フォーム
+        const currentBedtimeForm =
+            document.querySelector(".bedtime-settings");
+
+        const latestBedtimeForm =
+            newDocument.querySelector(".bedtime-settings");
+
+        const clockPanel =
+            document.getElementById("clock-panel");
+
+        if (currentBedtimeForm && !latestBedtimeForm) {
+
+            currentBedtimeForm.remove();
+
+        }
+
+        else if (
+            !currentBedtimeForm
+            && latestBedtimeForm
+            && clockPanel
+        ) {
+
+            clockPanel.appendChild(
+                latestBedtimeForm.cloneNode(true)
+            );
+
+        }
+
+        else if (
+            currentBedtimeForm
+            && latestBedtimeForm
+        ) {
+
+            const currentSelect =
+                currentBedtimeForm.querySelector("select");
+
+            const latestSelect =
+                latestBedtimeForm.querySelector("select");
+
+            const currentButton =
+                currentBedtimeForm.querySelector("button");
+
+            const latestButton =
+                latestBedtimeForm.querySelector("button");
+
+            // 選択中の就寝時刻は上書きしない
+            if (currentSelect && latestSelect) {
+
+                currentSelect.disabled =
+                    latestSelect.disabled;
+
+            }
+
+            if (currentButton && latestButton) {
+
+                currentButton.disabled =
+                    latestButton.disabled;
+
+            }
+
+        }
+
+
+        // キャラクターの自動セリフの判定
+        const latestSpeechState =
+            newDocument.getElementById("auto-speech-state");
+
+        if (latestSpeechState) {
+
+            autoSpeechEnabled =
+                latestSpeechState.dataset.enabled === "true";
+
+        }
+
+    }
+
+    catch (error) {
+
+        // 通信に失敗してもゲーム画面は維持する
+        console.log("自動更新に失敗しました", error);
+
+    }
+
+    finally {
+
+        refreshing = false;
+
+    }
+
+}
+
+
+// 30秒ごとに自動更新
+setInterval(refreshGame, REFRESH_INTERVAL);
+
+
+// 別のアプリやタブから戻ったとき
+document.addEventListener(
+    "visibilitychange",
+    function () {
+
+        if (!document.hidden) {
+
+            refreshGame();
+
+        }
+
+    }
+);
+
+// =========================
+// ゲームイントロ
+// =========================
+
+{% if save_data.status == 'playing' and save_data.tutorial_step == 0 %}
+
+const slides = [
+
+    "この子と一緒に過ごしてみよう！",
+
+    "ごはんをあげたり、一緒に遊んだり、休ませたりしながら育てていきます。",
+
+    "現実の時間に合わせて、ゲームの中の時間も進みます。ゲームを閉じている間も、この子の状態は変化するよ。",
+
+    "育てていくと、キャラクターの見た目が変化したり、部屋の飾りをゲットして模様替えができたりするよ。",
+
+    "この子の様子をよく見ながら、何をしてあげるか考えてみてね。\nどんなふうに育っていくかは、あなた次第！"
+
+];
+
+let slideIndex = 0;
+
+const introText =
+    document.getElementById("intro-text");
+
+const introDots =
+    document.getElementById("intro-dots");
+
+const introNext =
+    document.getElementById("intro-next");
+
+const introForm =
+    document.getElementById("intro-form");
+
+
+function showSlide() {
+
+    introText.innerText = slides[slideIndex];
+
+    introDots.textContent = slides.map(
+        function (_, i) {
+
+            return i === slideIndex ? "●" : "○";
+
+        }
+    ).join(" ");
+
+    introNext.textContent =
+        slideIndex === slides.length - 1
+        ? "はじめる"
+        : "つぎへ";
+
+}
+
+
+introNext.onclick = function () {
+
+    if (slideIndex < slides.length - 1) {
+
+        slideIndex++;
+
+        showSlide();
+
+    } else {
+
+        introForm.requestSubmit();
+
+        introNext.disabled = true;
+
+    }
+
+};
+
+showSlide();
+
+{% endif %}
+
+// =========================
+// リアルタイム型の追加説明
+// =========================
+
+{% if in_extra_intro %}
+
+const extraSlides = [
+
+    {% if show_tutorial_complete %}
+
+    {
+        caption: "✓ ゆっくり休んで元気になりました！",
+        title: "チュートリアル完了！",
+        text: "ここからは、この子の様子をよく見ながら育ててみてね。",
+        isComplete: true
+    },
+
+    {% endif %}
+
+    {
+        title: "リアルタイムでの育成",
+        text: "この子は、現実の時間に合わせて生活するよ。\nゲームを閉じている間も、少しずつ成長したり、おなかがすいたりするよ。"
+    },
+
+    {
+        title: "ストックについて",
+        text: "お世話をすると、その行動のストックが1つ減るよ。\nストックは時間が経つと回復するよ。"
+    },
+
+    {
+        title: "睡眠について",
+        text: "この子は毎日8時間眠るよ。\n眠っている間はお世話ができないけれど、元気が回復するよ。\n寝る時間は自分で設定できるよ。"
+    },
+
+    {
+        title: "シッターについて",
+        text: "お世話ができないときは、シッターに預けることができるよ。\n利用できるのは6:00〜19:00の間で、1日1回まで。\nお預かり中は成長やパラメータの低下が止まるよ。"
+    },
+
+    {
+        title: "お世話をはじめよう！",
+        text: "この子の様子をときどき確認して、お世話をしてあげてね。\nあなたの生活に合わせて、この子と一緒に過ごしてみよう！"
+    }
+
+];
+
+let extraSlideIndex = 0;
+
+const extraIntroCaption =
+    document.getElementById("extra-intro-caption");
+
+const extraIntroTitle =
+    document.getElementById("extra-intro-title");
+
+const extraIntroText =
+    document.getElementById("extra-intro-text");
+
+const extraIntroDots =
+    document.getElementById("extra-intro-dots");
+
+const extraIntroBack =
+    document.getElementById("extra-intro-back");
+
+const extraIntroNext =
+    document.getElementById("extra-intro-next");
+
+const extraIntroForm =
+    document.getElementById("extra-intro-form");
+
+
+function showExtraSlide() {
+
+    const slide = extraSlides[extraSlideIndex];
+
+    // チュートリアル完了画面のみ表示を変更
+    if (slide.isComplete) {
+
+        extraIntroCaption.textContent = slide.caption;
+        extraIntroCaption.style.color = "#2e7d32";
+        extraIntroCaption.style.fontSize = "14px";
+
+    } else {
+
+        extraIntroCaption.textContent = "リアルタイム型の追加説明";
+        extraIntroCaption.style.color = "#888";
+        extraIntroCaption.style.fontSize = "12px";
+
+    }
+
+    extraIntroTitle.textContent = slide.title;
+
+    extraIntroText.textContent = slide.text;
+
+    extraIntroDots.textContent = extraSlides.map(
+        function (_, i) {
+
+            return i === extraSlideIndex ? "●" : "○";
+
+        }
+    ).join(" ");
+
+    extraIntroBack.disabled =
+        extraSlideIndex === 0;
+
+    extraIntroNext.textContent =
+        extraSlideIndex === extraSlides.length - 1
+        ? "はじめる"
+        : "つぎへ";
+
+}
+
+
+extraIntroBack.onclick = function () {
+
+    if (extraSlideIndex > 0) {
+
+        extraSlideIndex--;
+
+        showExtraSlide();
+
+    }
+
+};
+
+
+extraIntroNext.onclick = function () {
+
+    if (extraSlideIndex < extraSlides.length - 1) {
+
+        extraSlideIndex++;
+
+        showExtraSlide();
+
+    } else {
+
+        extraIntroNext.disabled = true;
+
+        extraIntroBack.disabled = true;
+
+        extraIntroForm.requestSubmit();
+
+    }
+
+};
+
+
+showExtraSlide();
+
+{% endif %}
+
+
+</script>
+
+<!-- プレイ時間計測用の設定 -->
+<div id="play-session-config"
+     data-heartbeat-url="{% url 'real_time_game:play_heartbeat' %}"
+     data-end-session-url="{% url 'real_time_game:end_play_session' %}"
+     data-csrf-token="{{ csrf_token }}"
+     data-game-round="{{ save_data.game_round }}"
+     style="display:none;">
+</div>
+
+<script src="{% static 'js/play_session.js' %}"></script>
+
+</body>
+</html>

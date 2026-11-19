@@ -27,9 +27,12 @@ urlpatterns = [
     # ストーリーゲーム
     path('story/', include('storygame.urls')),
 
-    # ターン制育成ゲーム
-    path('', include('turn_based_game.urls')),
+    # リアルタイム型育成ゲーム
+    path('realtime/', include('real_time_game.urls')),
 
     # ログイン・ログアウト
     path('accounts/', include('django.contrib.auth.urls')),
+
+    # ターン制育成ゲーム
+    path('', include('turn_based_game.urls')),
 ]

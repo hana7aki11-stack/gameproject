@@ -757,6 +757,10 @@ function endGame() {
 
         setTimeout(function () {
 
+            if (window.markPlaySessionNavigation) {
+                window.markPlaySessionNavigation();
+            }
+
             window.location.href =
                 "{% url 'home' %}" +
                 "?action=food_result" +

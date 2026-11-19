@@ -44,6 +44,16 @@
     border-radius:8px; padding:2px 6px; margin-left:6px;
 }
 
+/* 通常のお知らせ：リアルタイム型と統一 */
+.notice {
+    max-width: 540px;
+    box-sizing: border-box;
+    margin: 12px auto;
+    padding: 12px;
+    border-radius: 12px;
+    background: #fff8e1;
+}
+
 
 /* スマホ縦画面 */
 @media (max-width: 600px){
@@ -94,18 +104,6 @@
     #room-wrap {
         margin-left: auto !important;
         margin-right: auto !important;
-    }
-
-    /* 行動ボタン */
-    .action-button {
-        display: block;
-        width: 92%;
-        max-width: 450px;
-        min-width: 0;
-        margin: 6px auto;
-        padding: 16px 10px;
-        font-size: 22px;
-        box-sizing: border-box;
     }
 
     /* ごはん・あそぶ等のカード */
@@ -194,14 +192,36 @@
 
 
 
-        .action-button {
-            font-size: 24px;
-            padding: 15px 30px;
-            margin: 10px;
-            border-radius: 10px;
-            cursor: pointer;
-            min-width: 160px;
-        }
+        /* メインの行動ボタン：リアルタイム型とデザイン統一 */
+.action-button {
+    appearance: none;
+    -webkit-appearance: none;
+
+    background-color: #0d8bff;
+    color: #ffffff;
+    border: 2px solid #0d8bff;
+    border-radius: 10px;
+
+    font-family: inherit;
+    font-weight: normal;
+    text-align: center;
+
+    font-size: 24px;
+    padding: 15px 30px;
+    margin: 10px;
+    min-width: 160px;
+
+    cursor: pointer;
+}
+
+/* 操作できないボタン */
+.action-button:disabled {
+    background-color: #efefef;
+    color: #888888;
+    border-color: #bbbbbb;
+    opacity: 0.6;
+    cursor: not-allowed;
+}
 
         .sub-action-button {
     font-size: 18px;
@@ -381,6 +401,124 @@
     background: #f44336;
 }
 
+/* =========================================
+   スマートフォン用：行動ボタンのサイズ
+   ========================================= */
+@media (max-width: 600px) {
+
+    .action-button {
+        display: block;
+        width: 92%;
+        max-width: 450px;
+        min-width: 0;
+        margin: 6px auto;
+        padding: 16px 10px;
+        font-size: 22px;
+        box-sizing: border-box;
+    }
+
+}
+
+/* =========================================
+   持ち物一覧：リアルタイム型と統一
+   ========================================= */
+
+.inventory-panel {
+    width: min(600px, calc(100vw - 16px));
+    box-sizing: border-box;
+    margin: 20px auto;
+    padding: 16px;
+    background: #fafafa;
+    border: 1px solid #ddd;
+    border-radius: 15px;
+}
+
+.inventory-panel h2 {
+    margin-top: 0;
+}
+
+.inventory-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+    margin: 15px 0;
+}
+
+.inventory-card {
+    position: relative;
+    min-width: 0;
+    padding: 10px;
+    box-sizing: border-box;
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 12px;
+}
+
+.inventory-card img {
+    display: block;
+    width: 100%;
+    height: 100px;
+    object-fit: contain;
+    margin: 0 auto 8px;
+}
+
+.inventory-name {
+    font-size: 14px;
+    font-weight: bold;
+    margin: 8px 0;
+    overflow-wrap: anywhere;
+}
+
+.inventory-button {
+    padding: 8px 12px;
+    margin: 4px;
+    font-size: 14px;
+    background: #f5f5f5;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    color: #333;
+    cursor: pointer;
+}
+
+.inventory-button:disabled {
+    background: #ddd;
+    color: #888;
+    cursor: not-allowed;
+}
+
+.inventory-status {
+    font-size: 12px;
+    color: #62916a;
+    margin: 6px 0;
+}
+
+.collection-bar {
+    height: 12px;
+    background: #e0e0e0;
+    border-radius: 999px;
+    overflow: hidden;
+    margin: 10px auto;
+}
+
+.collection-fill {
+    height: 100%;
+    background: #8abd91;
+    border-radius: 999px;
+}
+
+@media (max-width: 600px) {
+    .inventory-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .inventory-card {
+        padding: 8px;
+    }
+
+    .inventory-card img {
+        height: 90px;
+    }
+}
 
     </style>
 </head>
@@ -399,7 +537,7 @@
             もう一度見ますか？
         </p>
 
-        <form method="GET" style="display:inline;">
+        <form data-play-navigation="true" method="GET" style="display:inline;">
             <button
                 type="submit"
                 name="action"
@@ -409,7 +547,7 @@
             </button>
         </form>
 
-        <form method="GET" style="display:inline;">
+        <form data-play-navigation="true" method="GET" style="display:inline;">
             <button
                 type="submit"
                 name="action"
@@ -540,7 +678,12 @@
 
 </div>
 
-
+{# 通常のお知らせ #}
+{% if notice_message %}
+    <div class="notice">
+        {{ notice_message }}
+    </div>
+{% endif %}
 
 <div class="status-panel">
 
@@ -735,7 +878,7 @@ pointer-events: none;
         別の性格を目指してみましょう！
     </p>
 
-        <form method="GET" style="margin-top:16px;">
+        <form data-play-navigation="true" method="GET" style="margin-top:16px;">
         <button class="action-button" type="submit" name="action" value="new_round">
             新しい育成を始める
         </button>
@@ -764,15 +907,10 @@ pointer-events: none;
 <!-- 行動 -->
 <h2>行動</h2>
 
-{% if remaining_time == 0 and not game_end and not in_tutorial %}
-<p style="color: red;">
-    今日の時間を使い切りました。「次の日へ」を押してください。
-</p>
-{% endif %}
 
 
 <!-- メインボタン -->
-<form method="GET">
+<form data-play-navigation="true" method="GET">
 
     <button class="action-button {% if tutorial_step == 1 and tutorial_target == 'main' %}tutorial-highlight{% endif %}"
             type="submit" name="menu" value="food"
@@ -797,7 +935,7 @@ pointer-events: none;
 
 <!-- ごはん／あそぶメニュー（中身は views.py の FOOD_MENU / PLAY_MENU） -->
 {% if sub_menu_items %}
-<form method="GET">
+<form data-play-navigation="true" method="GET">
 
     {% for it in sub_menu_items %}
     <div class="action-card">
@@ -821,7 +959,7 @@ pointer-events: none;
 
 <!-- 難易度メニュー（全ミニゲーム共通） -->
 {% if difficulty_action %}
-<form method="GET">
+<form data-play-navigation="true" method="GET">
 
     <input type="hidden" name="action" value="{{ difficulty_action }}">
 
@@ -854,7 +992,7 @@ pointer-events: none;
 <br>
 
 <!-- 次の日へ -->
-<form method="GET">
+<form data-play-navigation="true" method="GET">
     <button class="action-button"
             type="submit" name="action" value="next_day"
             {% if game_end or in_tutorial %}disabled{% endif %}>
@@ -865,68 +1003,233 @@ pointer-events: none;
 <br>
 
 <!-- 持ち物一覧 -->
-<form method="GET">
-    <button class="action-button" type="submit" name="menu" value="items">
-        持ち物一覧{% if has_new_items %}<span class="new-badge">NEW</span>{% endif %}
+<form data-play-navigation="true" method="GET">
+    <button class="action-button"
+            type="submit"
+            name="menu"
+            value="items">
+
+        持ち物一覧
+
+        {% if has_new_items %}
+            <span class="new-badge">NEW</span>
+        {% endif %}
+
     </button>
 </form>
 
+
 {% if menu == 'items' %}
 
-<h2>持ち物一覧</h2>
+<div class="inventory-panel">
 
-<p>
-    所持数：{{ owned_count }} / {{ total_count }}
-    （{{ collection_rate }}%）
-</p>
+    <h2>持ち物一覧</h2>
 
-{% if items_display %}
+    <p>
+        所持数：{{ owned_count }} / {{ total_count }}
+    </p>
 
-<div style="display:flex; flex-wrap:wrap; justify-content:center; gap:20px;">
+    <p>
+        収集率：{{ collection_rate }}%
+    </p>
 
-    {% for it in items_display %}
-    <div style="width:120px; text-align:center; border:1px solid #ccc; border-radius:10px; padding:10px;">
+    <div class="collection-bar">
+        <div class="collection-fill"
+             style="width:{{ collection_rate }}%;">
+        </div>
+    </div>
 
-        <img src="{% static 'images/'|add:it.id|add:'.png' %}" width="80">
 
-        <p>
-            {{ it.name }}
-            {% if it.is_new %}<span class="new-badge">NEW</span>{% endif %}
-        </p>
+    <!-- =========================
+         家具一覧
+         ========================= -->
 
-        {% if it.id not in placed_items %}
-        <form method="GET">
-            <input type="hidden" name="menu" value="items">
-            <input type="hidden" name="action" value="place">
-            <input type="hidden" name="item" value="{{ it.id }}">
-            <button type="submit">配置</button>
-        </form>
-        {% else %}
-        <form method="GET" style="display:inline;">
-            <input type="hidden" name="menu" value="items">
-            <input type="hidden" name="action" value="remove">
-            <input type="hidden" name="item" value="{{ it.id }}">
-            <button type="submit">しまう</button>
-        </form>
-        {% endif %}
+    <h3>家具</h3>
+
+    <div class="inventory-grid">
+
+        {% for item in items_display %}
+
+            {% if not item.is_wallpaper %}
+
+                <div class="inventory-card">
+
+                    <img src="{% static item.image %}"
+                         alt="{{ item.name }}">
+
+                    <div class="inventory-name">
+
+                        {{ item.name }}
+
+                        {% if item.is_new %}
+                            <span class="new-badge">NEW</span>
+                        {% endif %}
+
+                    </div>
+
+                    {% if item.is_placed %}
+                        <div class="inventory-status">
+                            配置中
+                        </div>
+                    {% endif %}
+
+                    <form data-play-navigation="true"
+                          method="GET">
+
+                        <input type="hidden"
+                               name="menu"
+                               value="items">
+
+                        <input type="hidden"
+                               name="item"
+                               value="{{ item.id }}">
+
+                        {% if item.is_placed %}
+
+                            <button class="inventory-button"
+                                    type="submit"
+                                    name="action"
+                                    value="remove">
+                                しまう
+                            </button>
+
+                        {% else %}
+
+                            <button class="inventory-button"
+                                    type="submit"
+                                    name="action"
+                                    value="place">
+                                配置する
+                            </button>
+
+                        {% endif %}
+
+                    </form>
+
+                </div>
+
+            {% endif %}
+
+        {% endfor %}
 
     </div>
-    {% endfor %}
+
+
+    <!-- =========================
+         壁紙一覧
+         ========================= -->
+
+    <h3>壁紙</h3>
+
+    <div class="inventory-grid">
+
+        <!-- 初期の壁紙 -->
+
+        <div class="inventory-card">
+
+            <img src="{% static 'images/room-default-morning.png' %}"
+                 alt="初期の壁紙">
+
+            <div class="inventory-name">
+                初期の壁紙
+            </div>
+
+            <form data-play-navigation="true"
+                  method="GET">
+
+                <input type="hidden"
+                       name="menu"
+                       value="items">
+
+                <input type="hidden"
+                       name="item"
+                       value="room-default">
+
+                <button class="inventory-button"
+                        type="submit"
+                        name="action"
+                        value="place"
+                        {% if selected_wallpaper == 'room-default' %}
+                            disabled
+                        {% endif %}>
+
+                    {% if selected_wallpaper == 'room-default' %}
+                        使用中
+                    {% else %}
+                        変更する
+                    {% endif %}
+
+                </button>
+
+            </form>
+
+        </div>
+
+
+        <!-- 獲得済みの壁紙 -->
+
+        {% for item in items_display %}
+
+            {% if item.is_wallpaper %}
+
+                <div class="inventory-card">
+
+                    <img src="{% static item.image %}"
+                         alt="{{ item.name }}">
+
+                    <div class="inventory-name">
+
+                        {{ item.name }}
+
+                        {% if item.is_new %}
+                            <span class="new-badge">NEW</span>
+                        {% endif %}
+
+                    </div>
+
+                    <form data-play-navigation="true"
+                          method="GET">
+
+                        <input type="hidden"
+                               name="menu"
+                               value="items">
+
+                        <input type="hidden"
+                               name="item"
+                               value="{{ item.id }}">
+
+                        <button class="inventory-button"
+                                type="submit"
+                                name="action"
+                                value="place"
+                                {% if item.is_selected %}
+                                    disabled
+                                {% endif %}>
+
+                            {% if item.is_selected %}
+                                使用中
+                            {% else %}
+                                変更する
+                            {% endif %}
+
+                        </button>
+
+                    </form>
+
+                </div>
+
+            {% endif %}
+
+        {% endfor %}
+
+    </div>
 
 </div>
 
-{% else %}
-
-<p>まだアイテムを持っていません。</p>
-
 {% endif %}
-
-{% endif %}
-
-
 
 <!-- リセット -->
-<form method="GET"
+<form data-play-navigation="true" method="GET"
       onsubmit="return confirm('ゲームをリセットします。育成の進み具合と、集めた家具・壁紙もすべて消えます。よろしいですか？');">
 
     <button type="submit" name="action" value="reset">
@@ -1013,13 +1316,32 @@ introNext.onclick = function () {
         slideIndex++;
         showSlide();
     } else {
-        window.location.href = "?action=intro_done";   // チュートリアルへ
+
+        // ゲーム内の画面移動として扱う
+        if (window.markPlaySessionNavigation) {
+            window.markPlaySessionNavigation();
+        }
+
+        window.location.href = "?action=intro_done";
     }
 };
 showSlide();
 {% endif %}
 
 </script>
+
+<!-- プレイ時間計測用の設定 -->
+{% if user.is_authenticated %}
+<div id="play-session-config"
+     data-heartbeat-url="{% url 'play_heartbeat' %}"
+     data-end-session-url="{% url 'end_play_session' %}"
+     data-csrf-token="{{ csrf_token }}"
+     data-game-round="{{ request.session.game_round }}"
+     style="display:none;">
+</div>
+
+<script src="{% static 'js/play_session.js' %}"></script>
+{% endif %}
 
 </body>
 </html>

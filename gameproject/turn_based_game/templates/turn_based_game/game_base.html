@@ -46,10 +46,18 @@ body{
 .char-img, .character-area img{ height:clamp(80px,16vh,150px); }
 
 .button-area{ margin-top:12px; }
-.button-area a{
-    display:inline-block; font-size:20px; text-decoration:none;
-    padding:10px 30px; border-radius:10px;
-    background:#6fa8dc; color:white;
+.button-area a,
+.button-area button{
+    display:inline-block;
+    font-size:20px;
+    font-family:inherit;
+    text-decoration:none;
+    padding:10px 30px;
+    border:none;
+    border-radius:10px;
+    background:#6fa8dc;
+    color:white;
+    cursor:pointer;
 }
 
 /* ルール説明 */
@@ -160,8 +168,20 @@ body{
     </div>
 
     <div class="button-area">
-        <a href="{% url 'home' %}" id="back-button">戻る</a>
-    </div>
+
+    <form method="post"
+          action="{% url 'minigame_abandon' %}"
+          onsubmit="return confirm('ミニゲームを中断して育成画面に戻りますか？\n中断すると今回の結果は反映されず、消費した行動時間も戻りません。');">
+
+        {% csrf_token %}
+
+        <button type="submit" id="back-button">
+            中断して戻る
+        </button>
+
+    </form>
+
+</div>
 
 </div>
 
@@ -276,10 +296,22 @@ function startCountdown(callback){
 }
 
 </script>
-
 <script>
 {% block script %}{% endblock %}
 </script>
+
+<!-- プレイ時間計測用の設定 -->
+{% if user.is_authenticated %}
+<div id="play-session-config"
+     data-heartbeat-url="{% url 'play_heartbeat' %}"
+     data-end-session-url="{% url 'end_play_session' %}"
+     data-csrf-token="{{ csrf_token }}"
+     data-game-round="{{ request.session.game_round }}"
+     style="display:none;">
+</div>
+
+<script src="{% static 'js/play_session.js' %}"></script>
+{% endif %}
 
 </body>
 </html>
